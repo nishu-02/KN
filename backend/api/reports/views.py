@@ -8,6 +8,7 @@ from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
 
 from reports.permissions import IsAppwriteUser
+from .services.appwrite_service import create_appwrite_report
 
 class InjuryReportUploadView(APIView):
     permission_classes = [IsAppwriteUser]
@@ -41,6 +42,8 @@ class InjuryReportUploadView(APIView):
                 location=location,
                 report_data=ai_response.get('result'),
             )
+
+            create_appwrite_report(report) # Saving to the database
 
             serializer = InjuryReportSerializer(report)
 
