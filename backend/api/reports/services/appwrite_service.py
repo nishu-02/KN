@@ -1,5 +1,5 @@
 from appwrite.client import Client
-from appwrite.services.databases import databases
+from appwrite.services.databases import Databases
 from django.conf import settings
 
 def create_appwrite_report(report):
