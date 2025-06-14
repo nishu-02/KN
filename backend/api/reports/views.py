@@ -7,7 +7,10 @@ from .models import InjuryReport
 from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
 
+from reports.permissions import IsAppwriteUser
+
 class InjuryReportUploadView(APIView):
+    permission_classes = [IsAppwriteUser]
     """
     API view to handle injury report submissions.
     """
