@@ -1,1 +1,3 @@
 venv/
+.env
+backend/api/reports/__pycache__

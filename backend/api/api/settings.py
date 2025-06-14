@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,6 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'reports',
+    'ngo',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -80,6 +84,18 @@ DATABASES = {
     }
 }
 
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+}
+
+APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
+APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
+
+APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
+APPWRITE_DATABASE_ID = os.getenv("APPWRITE_DATABASE_ID")
+APPWRITE_REPORT_COLLECTION_ID = os.getenv("APPWRITE_REPORT_COLLECTION_ID")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
