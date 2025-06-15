@@ -107,4 +107,3 @@ class AcceptReportView(APIView):
             })
         except InjuryReport.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        

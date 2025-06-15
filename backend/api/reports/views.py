@@ -11,7 +11,7 @@ from .serializers import InjuryReportSerializer
 from reports.permissions import IsAppwriteUser
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification
-from reports.services.geo import get_nearby_ngos
+from reports.services.geo import get_nearby_ngos, get_nearby_reports
 
 class InjuryReportUploadView(APIView):
     permission_classes = [IsAppwriteUser]
@@ -107,3 +107,23 @@ class UpdateReportStatusView(APIView):
             return Response({
                 "error": "Report not found"
             }, status=status.HTTP_404_NOT_FOUND)
+
+class NearbyReportsView(APIView):
+    permission_classes = [IsAppwriteUser]
+
+    def get(self, request):
+        lat = float(request.query_params.get('lat'))
+        lon = float(request.query_params.get('lon'))
+
+        nearby_reports = get_nearby_reports(lat, lon, radius_km=5)
+        serializer = InjuryReportSerializer(nearby_reports, many=True)
+        return Response(serializer.data)
+
+class NGOSpecificReportsView(APiView):
+    permission_classes = [IsAppwriteUser]
+
+    def get(self, request):
+        user_id = request.user_id
+        reports = InjuryReport.objects.filter(ngo_assigned_id=user_id)
+        serializer = InjuryReportSerializer(reports, many=True)
+        return Response(serializer.data)
