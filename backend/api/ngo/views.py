@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import NGO
+from reports.models import InjuryReport
 from .serializers import NGORegisterSerializer
 from rest_framework.generics import ListAPIView
 from rest_framework.filters import SearchFilter
@@ -11,6 +12,7 @@ from rest_framework.permissions import AllowAny
 import appwrite
 from appwrite.client import Client
 from appwrite.services.account import Account
+from reports.services.appwrite_service import update_notification_status
 
 from django.conf import settings
 
@@ -30,14 +32,14 @@ class RegisterNGOView(APIView):
         account = Account(client)
 
         try:
-            session = account.get_session('current', {
-                "X-Appwrite-Session": token
-            })
-            user_id = session['userId']
+            client.set_jwt(token)
+            user = account.get()
+            user_id = user['$id']
         except Exception as e:
             return Response({
                 "error": "Invalid Appwrite Token"
             }, status=status.HTTP_401_UNAUTHORIZED)
+
 
         # Saving the NGO info
         data = request.data.copy()
@@ -64,7 +66,44 @@ class NGOSearchPagination(PageNumberPagination):
 class NGOSearchView(ListAPIView):
     queryset = NGO.objects.filter()
     serializer_class = NGORegisterSerializer
-    pagination_clas = NGOSearchPagination
+    pagination_class = NGOSearchPagination
     permission_classes = [AllowAny]
     filter_backends = [SearchFilter]
     search_fields = ['name','description', 'category', 'location']
+
+class AcceptReportView(APIView):
+    permission_classes = [IsAppwriteUser]
+    
+    def post(self, request, report_id):
+        try:
+            report = InjuryReport.objects.select_for_update().get(report=report_id)
+            if report.status != 'pending':
+                return Response({
+                    "error": "Already Taken",
+                }, status=status.HTTP_409_CONFLICT)
+
+            # Lock it to this NGO
+            report.ngo_assigned_id = request.user_id
+            report.status = 'in_progress'
+            report.save()
+
+            #Updating the appwrite notification
+            update_notification_status(report_id, request.user_id, 'accepted')
+
+            #Return route info
+            return Response({
+                "report_id": report_id,
+                "route":{
+                    "from": {
+                        "lat": request.data['lat'],
+                        "lon": request.data['lon']
+                    },
+                    "to": {
+                        "lat": report.latitude,
+                        "lon": report.longitude
+                    }
+                }
+            })
+        except InjuryReport.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        
