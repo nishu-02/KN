@@ -3,17 +3,21 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import NGO
 from .serializers import NGORegisterSerializer
+from rest_framework.generics import ListAPIView
+from rest_framework.filters import SearchFilter
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny
 
 import appwrite
 from appwrite.client import Client
-from appwrite.serivces.account import Account
+from appwrite.services.account import Account
 
 from django.conf import settings
 
 class RegisterNGOView(APIView):
     def post(self, request):
         token = request.headers.get("X-Appwrite-Token")
-        if not token or not starts with X:
+        if not token or not token.startswith('X'):
             return Response({
                 "error": "Token Missing"
             }, status=status.HTTP_401_UNAUTHORIZED  )
@@ -49,3 +53,18 @@ class RegisterNGOView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
+# View to search the NGO
+
+class NGOSearchPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+class NGOSearchView(ListAPIView):
+    queryset = NGO.objects.filter()
+    serializer_class = NGORegisterSerializer
+    pagination_clas = NGOSearchPagination
+    permission_classes = [AllowAny]
+    filter_backends = [SearchFilter]
+    search_fields = ['name','description', 'category', 'location']
