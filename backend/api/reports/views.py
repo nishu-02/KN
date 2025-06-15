@@ -127,3 +127,42 @@ class NGOSpecificReportsView(APiView):
         reports = InjuryReport.objects.filter(ngo_assigned_id=user_id)
         serializer = InjuryReportSerializer(reports, many=True)
         return Response(serializer.data)
+
+class ResolveReportview(APIView):
+    permission_classes = [IsAppwriteUser]
+
+    def post(self, request, report_id):
+        try:
+            report = InjuryReport.objects.get(report_id=report_id)
+
+            # Check if the requester is the assigned NGO
+            if report.ngo_assigned_id != request.user_id:
+                return Response({
+                    "error": "You are not authorized to resolve this report"
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            if report.status != 'in_progress':
+                return Response({
+                    "error": "Only reports in progress can be resolved."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Mark the report as resolved
+            report.status = 'resolved'
+            report.save()
+
+            # Update the appwrite notification status
+            update_notification_status(report_id, request.user_id, 'resolved')
+
+            return Response({
+                "message": "Report marked as resolved successfully"
+            }, status=status.HTTP_200_OK)
+
+        except InjuryReport.DoesNotExist:
+            return Response({
+                "error": "Report not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
