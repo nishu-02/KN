@@ -4,11 +4,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import InjuryReport
+from ngo.models import NGO
 from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
 
 from reports.permissions import IsAppwriteUser
 from .services.appwrite_service import create_appwrite_report
+from reports.services.appwrite_service import create_appwrite_notification
+from reports.services.geo import get_nearby_ngos
 
 class InjuryReportUploadView(APIView):
     permission_classes = [IsAppwriteUser]
@@ -44,6 +47,20 @@ class InjuryReportUploadView(APIView):
             )
 
             create_appwrite_report(report) # Saving to the database
+
+            lat = location.get('latitude')
+            lon = location.get('longitude')
+
+            nearby_ngos = get_nearby_ngos(lat, lon, radius_km=5)
+            
+            for ngo in nearby_ngos:
+                create_appwrite_notification({
+                    "notification_id": str(uuid.uuid4()),
+                    "report_id": str(report.report_id),
+                    "ngo_id": ngo.ngo_id,
+                    "status": "pending",
+                    "created_at": str(report.created_at),
+                })
 
             serializer = InjuryReportSerializer(report)
 
