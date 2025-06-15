@@ -56,3 +56,45 @@ def create_appwrite_notification(payload: dict):
     except Exception as e:
         print(f"Appwrite notification sync failed: {e}")
         return None
+
+def update_notification_status(report_id, ngo_id, new_status):
+
+    """
+    Updating the notification
+    """
+    client = get_appwrite_client()
+    databases = Databases(client)
+
+    try:
+        #Find the notification document
+        result = databases.list_document(
+            database_id=settings.APPWRITE_DATABASE_ID,
+            collection_id=settings.APPWRITE_NOTIFICATION_COLLECTION_ID,
+            queries=[
+                f'equal("report_id", "{report_id}")',
+                f'equal("ngo_id", "{ngo_id}")'
+            ]
+        )
+        
+        documents = result.get('documents', [])
+        if not documents:
+            print("Notificationi not found for report and NGO")
+            return None
+        
+        doc_id = document[0]['$id']
+
+        #Update the status
+        updated = database.update_document(
+            database_id=settings.APPWRITE_DATABASE_ID,
+            collection_id=settings.APPWRITE_NOTIFICATION_COLLECTION_ID,
+            document_id=doc_id,
+            data={
+                'status': new_status
+            }
+        )
+
+        return udpdated
+
+    except Exception as e:
+        print(f"[Appwrite] Failed to update the notification status: {e}")
+        return None

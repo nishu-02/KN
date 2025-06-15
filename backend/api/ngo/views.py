@@ -13,6 +13,7 @@ import appwrite
 from appwrite.client import Client
 from appwrite.services.account import Account
 from reports.services.appwrite_service import update_notification_status
+from reports.permissions import IsAppwriteUser
 
 from django.conf import settings
 

@@ -72,5 +72,38 @@ class InjuryReportUploadView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            
+class UpdateReportStatusView(APIView):
+    permission_classes = [IsAppwriteUser]
 
+    def patch(self, request, report_id):
+        new_status = request.data.get('status')
+        allowed_statuses = [
+            'in_progress',
+            'resolved'
+        ]      
+
+        if new_status not in allowed_statuses:
+            return Response({
+                "error": "not a valid selection"
+            }, status=400)
+
+        try:
+            report = InjuryReport.objects.get(report_id=report_id)
+
+            if report.ngo_assigned_id != request.user_id:
+                return Response({
+                    "error": "Unauthorized"
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            report.status = new_status
+            report.save()
+
+            update_notification_status(report_id, request.user_id, new_status)
+
+            return Response({
+                "message": "Report status updated!"
+            }, status=status.HTTP_200_OK)
+        except InjuryReport.DoesNotExist:
+            return Response({
+                "error": "Report not found"
+            }, status=status.HTTP_404_NOT_FOUND)

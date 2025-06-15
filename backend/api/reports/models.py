@@ -17,8 +17,9 @@ class InjuryReport(models.Model):
 
     latitude = models.FloatField()
     longitude = models.FloatField()
-    ngo_assigned = models.ForeignKey(NGO, null=True, blank=True, on_delete=models.SET_NULL)
 
-    ngo = models.ForeignKey(NGO, on_delete=models.SET_NULL, null=True, blank=True)
+    ngo_assigned = models.ForeignKey(NGO, on_delete=models.SET_NULL, null=True, related_name="reports_taken_by")
+    ngo = models.ForeignKey(NGO, on_delete=models.SET_NULL, null=True, related_name="reports_created_by")
+    
     def __str__(self):
         return f"Report {self.id} - {self.status}"

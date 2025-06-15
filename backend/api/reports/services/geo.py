@@ -2,7 +2,7 @@ from django.db.models import F, Func, FloatField, ExpressionWrapper, Value
 from math import radians, cos, sin, acos
 from ngo.models import NGO
 
-class Radian(Func);
+class Radian(Func):
     function = 'RADIANS'
     template = '%(function)s(%(expressions)s)'
 
