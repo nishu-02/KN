@@ -4,11 +4,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import InjuryReport
+from ngo.models import NGO
 from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
 
 from reports.permissions import IsAppwriteUser
 from .services.appwrite_service import create_appwrite_report
+from reports.services.appwrite_service import create_appwrite_notification
+from reports.services.geo import get_nearby_ngos, get_nearby_reports
 
 class InjuryReportUploadView(APIView):
     permission_classes = [IsAppwriteUser]
@@ -45,6 +48,20 @@ class InjuryReportUploadView(APIView):
 
             create_appwrite_report(report) # Saving to the database
 
+            lat = location.get('latitude')
+            lon = location.get('longitude')
+
+            nearby_ngos = get_nearby_ngos(lat, lon, radius_km=5)
+            
+            for ngo in nearby_ngos:
+                create_appwrite_notification({
+                    "notification_id": str(uuid.uuid4()),
+                    "report_id": str(report.report_id),
+                    "ngo_id": ngo.ngo_id,
+                    "status": "pending",
+                    "created_at": str(report.created_at),
+                })
+
             serializer = InjuryReportSerializer(report)
 
             return Response({
@@ -55,5 +72,58 @@ class InjuryReportUploadView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            
+class UpdateReportStatusView(APIView):
+    permission_classes = [IsAppwriteUser]
 
+    def patch(self, request, report_id):
+        new_status = request.data.get('status')
+        allowed_statuses = [
+            'in_progress',
+            'resolved'
+        ]      
+
+        if new_status not in allowed_statuses:
+            return Response({
+                "error": "not a valid selection"
+            }, status=400)
+
+        try:
+            report = InjuryReport.objects.get(report_id=report_id)
+
+            if report.ngo_assigned_id != request.user_id:
+                return Response({
+                    "error": "Unauthorized"
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            report.status = new_status
+            report.save()
+
+            update_notification_status(report_id, request.user_id, new_status)
+
+            return Response({
+                "message": "Report status updated!"
+            }, status=status.HTTP_200_OK)
+        except InjuryReport.DoesNotExist:
+            return Response({
+                "error": "Report not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+class NearbyReportsView(APIView):
+    permission_classes = [IsAppwriteUser]
+
+    def get(self, request):
+        lat = float(request.query_params.get('lat'))
+        lon = float(request.query_params.get('lon'))
+
+        nearby_reports = get_nearby_reports(lat, lon, radius_km=5)
+        serializer = InjuryReportSerializer(nearby_reports, many=True)
+        return Response(serializer.data)
+
+class NGOSpecificReportsView(APiView):
+    permission_classes = [IsAppwriteUser]
+
+    def get(self, request):
+        user_id = request.user_id
+        reports = InjuryReport.objects.filter(ngo_assigned_id=user_id)
+        serializer = InjuryReportSerializer(reports, many=True)
+        return Response(serializer.data)
