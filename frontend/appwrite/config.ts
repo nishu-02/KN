@@ -5,7 +5,9 @@ export const APPWRITE_PROJECT_ID = '684ced9100138d2cf451';
 export const APPWRITE_DATABASE_ID = '684d542f000cbee2ab8e';
 export const APPWRITE_REPORT_COLLECTION_ID = '684d54a1003a51a8528d';
 
-const client = new Client()
+const client = new Client();
+client
+
   .setEndpoint(APPWRITE_ENDPOINT)
   .setProject(APPWRITE_PROJECT_ID);
 

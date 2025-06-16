@@ -5,7 +5,6 @@ export type Report = {
   $id: string;
   [key: string]: any;
 };
-
 export async function getReports(): Promise<Report[]> {
   try {
     const res = await databases.listDocuments(
