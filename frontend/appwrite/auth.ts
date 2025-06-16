@@ -9,7 +9,6 @@ export async function loginUser(email: string, password: string) {
   return await account.createSession(email, password);
 }
 
-
 export async function getCurrentUser() {
   return await account.get();
 }
