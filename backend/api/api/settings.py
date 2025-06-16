@@ -96,6 +96,7 @@ APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
 APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
 APPWRITE_DATABASE_ID = os.getenv("APPWRITE_DATABASE_ID")
 APPWRITE_REPORT_COLLECTION_ID = os.getenv("APPWRITE_REPORT_COLLECTION_ID")
+APPWRITE_BUCKET_ID=os.getenv("APPWRITE_BUCKET_ID")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

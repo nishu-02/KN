@@ -10,7 +10,7 @@ from .serializers import InjuryReportSerializer
 
 from reports.permissions import IsAppwriteUser
 from .services.appwrite_service import create_appwrite_report
-from reports.services.appwrite_service import create_appwrite_notification
+from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite
 from reports.services.geo import get_nearby_ngos, get_nearby_reports
 
 class InjuryReportUploadView(APIView):
@@ -37,11 +37,15 @@ class InjuryReportUploadView(APIView):
             if not ai_response.get('success'):
                 return Response({"error": ai_response.get('error')}, status=status.HTTP_502_BAD_GATEWAY)
 
+            # Upload image to Appwrite
+            file_id = upload_image_to_appwrite(image_file)
+            image_url = get_image_url(file_id)
+
             # Saving to DB
             report = InjuryReport.objects.create(
                 report_id=uuid.uuid4(),
                 user_id=user_id,
-                image_url="",
+                image_url=image_url,
                 location=location,
                 report_data=ai_response.get('result'),
             )
