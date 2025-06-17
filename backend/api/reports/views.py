@@ -123,7 +123,7 @@ class NearbyReportsView(APIView):
         serializer = InjuryReportSerializer(nearby_reports, many=True)
         return Response(serializer.data)
 
-class NGOSpecificReportsView(APiView):
+class NGOSpecificReportsView(APIView):
     permission_classes = [IsAppwriteUser]
 
     def get(self, request):
@@ -132,7 +132,7 @@ class NGOSpecificReportsView(APiView):
         serializer = InjuryReportSerializer(reports, many=True)
         return Response(serializer.data)
 
-class ResolveReportview(APIView):
+class ResolveReportView(APIView):
     permission_classes = [IsAppwriteUser]
 
     def post(self, request, report_id):

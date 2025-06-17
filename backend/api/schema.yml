@@ -1,0 +1,208 @@
+openapi: 3.0.3
+info:
+  title: KaurnaNidhan
+  version: 1.0.0
+  description: KarunaNidhan is an AI-driven mobile platform designed to assist injured
+    stray animals. Users can capture a photo of the injured animal, which our app’s
+    ML model analyzes to generate a “Doctor Card” summarizing the injury, urgency,
+    and suggested actions. This report is posted to a shared portal where NGOs and
+    volunteers can view, respond, and update progress. By combining computer vision
+    with LLMs, KarunaNidhan bridges the gap between public awareness and real-time
+    rescue actions, ensuring timely support for voiceless beings while streamlining
+    coordination across animal welfare networks.
+paths:
+  /ngo/register/:
+    post:
+      operationId: ngo_register_create
+      tags:
+      - ngo
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /ngo/search/ngo/:
+    get:
+      operationId: ngo_search_ngo_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - ngo
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNGORegisterList'
+          description: ''
+  /reports/nearby/:
+    get:
+      operationId: reports_nearby_retrieve
+      tags:
+      - reports
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+  /reports/ngo/:
+    get:
+      operationId: reports_ngo_retrieve
+      tags:
+      - reports
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+  /reports/resolve-report/{report_id}/:
+    post:
+      operationId: reports_resolve_report_create
+      parameters:
+      - in: path
+        name: report_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - reports
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+  /reports/update/:
+    patch:
+      operationId: reports_update_partial_update
+      tags:
+      - reports
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+  /reports/upload/:
+    post:
+      operationId: reports_upload_create
+      tags:
+      - reports
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    CategoryEnum:
+      enum:
+      - animal
+      - environment
+      - medical
+      - education
+      - other
+      type: string
+      description: |-
+        * `animal` - Animal Welfare
+        * `environment` - Environment
+        * `medical` - Medical Aid
+        * `education` - Education
+        * `other` - Other
+    NGORegister:
+      type: object
+      properties:
+        ngo_id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          nullable: true
+          maxLength: 15
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        description:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          maxLength: 200
+      required:
+      - category
+      - email
+      - latitude
+      - longitude
+      - name
+      - ngo_id
+    PaginatedNGORegisterList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/NGORegister'
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
