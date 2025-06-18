@@ -77,7 +77,18 @@ class AcceptReportView(APIView):
     
     def post(self, request, report_id):
         try:
+            # Validate lat/lon in request
+            lat = request.data.get('lat')
+            lon = request.data.get('lon')
+            
+            if not lat or not lan:
+                return Response({
+                    "error": "Missing NGO location coordinates"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Fetch the report
             report = InjuryReport.objects.select_for_update().get(report=report_id)
+            
             if report.status != 'pending':
                 return Response({
                     "error": "Already Taken",
@@ -93,6 +104,7 @@ class AcceptReportView(APIView):
 
             #Return route info
             return Response({
+                "message": "Report accepted successfully",
                 "report_id": report_id,
                 "route":{
                     "from": {
@@ -104,6 +116,14 @@ class AcceptReportView(APIView):
                         "lon": report.longitude
                     }
                 }
-            })
+            }, status=status.HTTP_200_OK)
+
         except InjuryReport.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({
+                "error": "Report not found."
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

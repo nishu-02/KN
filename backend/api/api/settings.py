@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'reports',
     'ngo',
     'rest_framework',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -88,6 +89,7 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
@@ -96,6 +98,7 @@ APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
 APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
 APPWRITE_DATABASE_ID = os.getenv("APPWRITE_DATABASE_ID")
 APPWRITE_REPORT_COLLECTION_ID = os.getenv("APPWRITE_REPORT_COLLECTION_ID")
+APPWRITE_BUCKET_ID=os.getenv("APPWRITE_BUCKET_ID")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -137,3 +140,10 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'KaurnaNidhan',
+    'DESCRIPTION': 'KarunaNidhan is an AI-driven mobile platform designed to assist injured stray animals. Users can capture a photo of the injured animal, which our app’s ML model analyzes to generate a “Doctor Card” summarizing the injury, urgency, and suggested actions. This report is posted to a shared portal where NGOs and volunteers can view, respond, and update progress. By combining computer vision with LLMs, KarunaNidhan bridges the gap between public awareness and real-time rescue actions, ensuring timely support for voiceless beings while streamlining coordination across animal welfare networks.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
