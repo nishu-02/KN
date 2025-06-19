@@ -1,4 +1,3 @@
-import { Snackbar } from 'react-native-paper';
 import { appwriteConfig } from './env';
 
 type CreateUserAccount = {
@@ -47,10 +46,7 @@ class AppwriteService {
 
       return data;
     } catch (error: any) {
-      Snackbar.show({
-        text: error.message || 'Something went wrong.',
-        duration: Snackbar.LENGTH_LONG,
-      });
+      console.error(`AppwriteService :: request (${method} ${path}) ::`, error);
       throw error;
     }
   }
@@ -64,7 +60,8 @@ class AppwriteService {
         name,
       });
 
-      return await this.login({ email, password }); // auto-login after registration
+      // Auto-login after registration
+      return await this.login({ email, password });
     } catch (error) {
       console.error('AppwriteService :: createAccount ::', error);
       throw error;
@@ -72,23 +69,20 @@ class AppwriteService {
   }
 
   async login({ email, password }: LoginUserAccount) {
-    try {
-      // Create session first
-      const session = await this.request('/account/sessions/email', 'POST', {
-        email,
-        password,
-      });
+  try {
+    const user = await this.getCurrentUser();
+    if (user) throw new Error("Already logged in");
 
-      // Get JWT token for future requests
-      const jwtResponse = await this.request('/account/jwt', 'POST');
-      this.jwt = jwtResponse.jwt;
+    const session = await this.request('/account/sessions/email', 'POST', { email, password });
+    const jwtResponse = await this.request('/account/jwt', 'POST');
+    this.jwt = jwtResponse.jwt;
 
-      return session;
-    } catch (error) {
-      console.error('AppwriteService :: login ::', error);
-      throw error;
-    }
+    return session;
+  } catch (error) {
+    console.error('AppwriteService :: login ::', error);
+    throw error;
   }
+}
 
   async getCurrentUser() {
     try {

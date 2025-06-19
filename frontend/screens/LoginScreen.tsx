@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { TextInput, Button, ActivityIndicator, Text, Snackbar } from 'react-native-paper';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../core/redux/slices/authSlice';
 import AppwriteService from '../appwrite/service';
 
 export default function LoginScreen() {
+  const dispatch = useDispatch();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+
+  const showSnackbar = (msg: string) => {
+    setSnackbarMsg(msg);
+    setSnackbarVisible(true);
+  };
 
   const handleLogin = async () => {
     setLoading(true);
@@ -17,47 +30,75 @@ export default function LoginScreen() {
       const user = await AppwriteService.getCurrentUser();
 
       console.log('User:', user);
-      Alert.alert('Login Successful', `Hello, ${user.name}`);
+      dispatch(setUser(user));
+      showSnackbar(`Hello, ${user.name}`);
     } catch (err: any) {
       console.error('Login error:', err.message);
-      Alert.alert('Login Failed', err.message || 'Something went wrong');
+      showSnackbar(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
+    <View style={styles.container}>
+      <Text variant="headlineMedium" style={styles.title}>Login</Text>
+
       <TextInput
-        placeholder="Email"
+        label="Email"
         value={email}
         onChangeText={setEmail}
-        autoCapitalize="none"
         keyboardType="email-address"
-        style={{ borderWidth: 1, padding: 10, marginBottom: 10 }}
+        autoCapitalize="none"
+        style={styles.input}
+        mode="outlined"
       />
       <TextInput
-        placeholder="Password"
+        label="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        style={{ borderWidth: 1, padding: 10, marginBottom: 10 }}
+        style={styles.input}
+        mode="outlined"
       />
-      <TouchableOpacity
+      <Button
+        mode="contained"
         onPress={handleLogin}
         disabled={loading}
-        style={{
-          backgroundColor: '#007AFF',
-          padding: 15,
-          alignItems: 'center',
+        style={styles.button}
+      >
+        {loading ? <ActivityIndicator animating color="#fff" /> : 'Login'}
+      </Button>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        action={{
+          label: 'Close',
+          onPress: () => setSnackbarVisible(false),
         }}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={{ color: '#fff' }}>Login</Text>
-        )}
-      </TouchableOpacity>
+        {snackbarMsg}
+      </Snackbar>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  title: {
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  button: {
+    marginTop: 8,
+  },
+});
