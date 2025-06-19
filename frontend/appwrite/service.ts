@@ -1,10 +1,5 @@
-import { ID, Account, Client } from 'appwrite';
 import { Snackbar } from 'react-native-paper';
-
-import { env } from './env';
-
-const APPWRITE_ENDPOINT: string = env.APPWRITE_ENDPOINT!;
-const APPWRITE_PROJECT_ID: string = env.APPWRITE_PROJECT_ID!;
+import { appwriteConfig } from './env';
 
 type CreateUserAccount = {
   email: string;
@@ -17,73 +12,100 @@ type LoginUserAccount = {
   password: string;
 };
 
-const client = new Client();
-
-client
-  .setEndpoint(APPWRITE_ENDPOINT)
-  .setProject(APPWRITE_PROJECT_ID);
-
 class AppwriteService {
-  private account: Account;
+  private endpoint: string;
+  private projectId: string;
+  private jwt: string | null = null;
 
   constructor() {
-    this.account = new Account(client);
+    this.endpoint = appwriteConfig.endpoint;
+    this.projectId = appwriteConfig.projectId;
+  }
+
+  private async request(path: string, method = 'GET', body?: object) {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Appwrite-Project': this.projectId,
+    };
+
+    if (this.jwt) {
+      headers['X-Appwrite-JWT'] = this.jwt;
+    }
+
+    try {
+      const response = await fetch(`${this.endpoint}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unknown error');
+      }
+
+      return data;
+    } catch (error: any) {
+      Snackbar.show({
+        text: error.message || 'Something went wrong.',
+        duration: Snackbar.LENGTH_LONG,
+      });
+      throw error;
+    }
   }
 
   async createAccount({ email, password, name }: CreateUserAccount) {
     try {
-      const userAccount = await this.account.create(
-        ID.unique(),
+      await this.request('/account', 'POST', {
+        userId: 'unique()',
         email,
         password,
-        name
-      );
-      if (userAccount) {
-        return await this.login({ email, password });
-      }
-      return userAccount;
-    } catch (error: any) {
-      Snackbar.show({
-        text: error.message || 'Account creation failed.',
-        duration: Snackbar.LENGTH_LONG,
+        name,
       });
-      console.error('Appwrite Service :: createAccount ::', error);
+
+      return await this.login({ email, password }); // auto-login after registration
+    } catch (error) {
+      console.error('AppwriteService :: createAccount ::', error);
+      throw error;
     }
   }
 
   async login({ email, password }: LoginUserAccount) {
     try {
-      return await this.account.createEmailSession(email, password);
-    } catch (error: any) {
-      Snackbar.show({
-        text: error.message || 'Login failed.',
-        duration: Snackbar.LENGTH_LONG,
+      // Create session first
+      const session = await this.request('/account/sessions/email', 'POST', {
+        email,
+        password,
       });
-      console.error('Appwrite Service :: login ::', error);
+
+      // Get JWT token for future requests
+      const jwtResponse = await this.request('/account/jwt', 'POST');
+      this.jwt = jwtResponse.jwt;
+
+      return session;
+    } catch (error) {
+      console.error('AppwriteService :: login ::', error);
+      throw error;
     }
   }
 
   async getCurrentUser() {
     try {
-      return await this.account.get();
-    } catch (error: any) {
-      Snackbar.show({
-        text: error.message || 'Could not fetch user.',
-        duration: Snackbar.LENGTH_LONG,
-      });
-      console.error('Appwrite Service :: getCurrentUser ::', error);
+      return await this.request('/account', 'GET');
+    } catch (error) {
+      console.error('AppwriteService :: getCurrentUser ::', error);
+      throw error;
     }
   }
 
   async logout() {
     try {
-      return await this.account.deleteSession('current');
-    } catch (error: any) {
-      Snackbar.show({
-        text: error.message || 'Logout failed.',
-        duration: Snackbar.LENGTH_LONG,
-      });
-      console.error('Appwrite Service :: logout ::', error);
+      await this.request('/account/sessions/current', 'DELETE');
+      this.jwt = null;
+    } catch (error) {
+      console.error('AppwriteService :: logout ::', error);
+      throw error;
     }
   }
 }
