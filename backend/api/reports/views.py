@@ -170,3 +170,13 @@ class ResolveReportView(APIView):
             return Response({
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SavePushTokenView(APIView):
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        token = request.data.get('token')
+        if not user_id or not token:
+            return Response({
+                
+            })
