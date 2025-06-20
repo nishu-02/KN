@@ -23,3 +23,7 @@ class InjuryReport(models.Model):
     
     def __str__(self):
         return f"Report {self.id} - {self.status}"
+
+class ExpoPushToken(models.Model):
+    user_id = models.CharField(max+length=255, unique=True)
+    token = models.CharField(max_length=255)
