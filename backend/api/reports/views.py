@@ -15,6 +15,7 @@ from reports.permissions import IsAppwriteUser
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports
+from reports.services.utils import send_push_notification
 
 from .notification import notify_user
 
@@ -84,22 +85,36 @@ class InjuryReportUploadView(APIView):
 
             nearby_ngos = get_nearby_ngos(lat, lon, radius_km=5)
             
+            # Send push notification to all nearby NGO device tokens
             for ngo in nearby_ngos:
-                create_appwrite_notification({
+                notification_data = {
                     "notification_id": str(uuid.uuid4()),
                     "report_id": str(report.report_id),
                     "ngo_id": ngo.ngo_id,
                     "status": "pending",
                     "created_at": str(report.created_at),
-                })
+                }
+                create_appwrite_notification(notification_data)
+
+                # Get the Expo push token for this NGO
+                try:
+                    ngo_token_obj = ExpoPushToken.objects.get(user_id=ngo.ngo_id)
+                    send_push_notification(
+                        ngo_token_obj.token,
+                        title="New Report Assigned",
+                        body="A new injury report has been assigned to you!"
+                    )
+                except ExpoPushToken.DoesNotExist:
+                    pass  # No push token for this NGO
 
             serializer = InjuryReportSerializer(report)
 
-            send_push_notification(
-                ngo_device_token,
-                title="New Report Assigned",
-                body="A new injury report has been assigned to you!"
-            )
+            # Remove or comment out undefined send_push_notification and ngo_device_token
+            # send_push_notification(
+            #     ngo_device_token,
+            #     title="New Report Assigned",
+            #     body="A new injury report has been assigned to you!"
+            # )
 
             return Response({
                 "message": "Injury report generated successfully",

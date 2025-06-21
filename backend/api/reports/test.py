@@ -16,8 +16,8 @@ class AppwriteAPITester:
         self.django_base_url = "http://127.0.0.1:8000"
         
         # Test credentials
-        self.test_email = "testtest@gmail.com"
-        self.test_password = "48526789"
+        self.test_email = "test2@gmail.com"
+        self.test_password = "02640264"
         
         # Will be set after login
         self.session_id = None
@@ -383,58 +383,102 @@ class AppwriteAPITester:
             print(f"❌ Logout error: {str(e)}")
             return False
 
+    def test_register_user_appwrite(self):
+        """Test: Register a user with Appwrite"""
+        print("👤 Testing: Register User (Appwrite)...")
+        url = f"{self.appwrite_endpoint}/account"
+        headers = {
+            "Content-Type": "application/json",
+            "X-Appwrite-Project": self.project_id
+        }
+        payload = {
+            "userId": "unique()",
+            "email": self.test_email,
+            "password": self.test_password,
+            "name": "Test User"
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 201:
+                print(f"✅ User registration successful: {response.status_code}")
+                print(f"📄 Response: {response.json()}")
+                return True
+            else:
+                print(f"❌ User registration failed: {response.status_code}")
+                print(f"Response: {response.text}")
+                return False
+        except Exception as e:
+            print(f"❌ User registration error: {str(e)}")
+            return False
+
+    def test_save_push_token(self):
+        """Test: Save Expo push token"""
+        print("🔔 Testing: Save Expo Push Token...")
+        url = f"{self.django_base_url}/reports/save-push-token/"
+        headers = {"Content-Type": "application/json"}
+        if self.jwt_token:
+            headers["Authorization"] = f"Bearer {self.jwt_token}"
+        payload = {
+            "user_id": self.user_id,
+            "token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                print(f"✅ Push token saved!")
+                print(f"📄 Response: {response.json()}")
+                return True
+            else:
+                print(f"❌ Push token save failed: {response.status_code}")
+                print(f"Response: {response.text}")
+                return False
+        except Exception as e:
+            print(f"❌ Push token error: {str(e)}")
+            return False
+
     def run_all_tests(self):
         """🎯 THE MAGIC BUTTON - Run all tests in sequence!"""
         print("=" * 60)
         print("🎯 STARTING COMPLETE API TEST SUITE")
         print("=" * 60)
-        
         start_time = time.time()
-        
+        # Step 0: Register user (Appwrite)
+        self.test_register_user_appwrite()
         # Step 1: Authentication
         if not self.login_to_appwrite():
             print("💥 Authentication failed. Stopping tests.")
             return
-            
         # Step 2: Try to get JWT token (optional, will fallback to session)
         jwt_success = self.get_jwt_token()
         if not jwt_success:
             print("⚠️  JWT not available, will use session-based auth")
-            
         print("\n" + "=" * 30)
         print("🧪 RUNNING DJANGO API TESTS")
         print("=" * 30)
-        
         # Step 3: Register as NGO first
-        # self.test_register_ngo()
-        # print()
-        
+        self.test_register_ngo()
+        print()
         # Step 4: Upload a report
         uploaded_report_id = self.test_upload_report()
         print()
-        
-        # Step 5: Get nearby reports
+        # # Step 5: Get nearby reports
         # self.test_get_nearby_reports()
         # print()
-        
-        # Step 6: Get NGO reports
+        # # Step 6: Get NGO reports
         # self.test_get_ngo_reports()
         # print()
-        
-        # Step 7: Accept a report (use uploaded ID if available)
+        # # Step 7: Accept a report (use uploaded ID if available)
         # test_report_id = uploaded_report_id or "5d027a18-d859-4558-b48c-e64d314fc34d"
         # self.test_accept_report(test_report_id)
         # print()
-        
-        # Step 8: Resolve the report
+        # # Step 8: Resolve the report
         # self.test_resolve_report(test_report_id)
         # print()
-        
+        # # Step 9: Save Expo push token
+        self.test_save_push_token()
         # Cleanup
         self.logout_from_appwrite()
-        
         end_time = time.time()
-        
         print("\n" + "=" * 60)
         print(f"🎉 TEST SUITE COMPLETED in {end_time - start_time:.2f} seconds!")
         print("=" * 60)

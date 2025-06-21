@@ -80,13 +80,10 @@ def update_notification_status(report_id, ngo_id, new_status):
         
         documents = result.get('documents', [])
         if not documents:
-            print("Notificationi not found for report and NGO")
+            print("Notification not found for report and NGO")
             return None
-        
-        doc_id = document[0]['$id']
-
-        #Update the status
-        updated = database.update_document(
+        doc_id = documents[0]['$id']
+        updated = databases.update_document(
             database_id=settings.APPWRITE_DATABASE_ID,
             collection_id=settings.APPWRITE_NOTIFICATION_COLLECTION_ID,
             document_id=doc_id,
@@ -95,7 +92,7 @@ def update_notification_status(report_id, ngo_id, new_status):
             }
         )
 
-        return udpdated
+        return updated
 
     except Exception as e:
         print(f"[Appwrite] Failed to update the notification status: {e}")
@@ -123,4 +120,3 @@ def upload_image_to_appwrite(image_file):
 
 def get_image_url(file_id):
     return f"{settings.APPWRITE_ENDPOINT}/v1/storage/buckets/{settings.APPWRITE_BUCKET_ID}/files/{file_id}/view?project={settings.APPWRITE_PROJECT_ID}"
-    
