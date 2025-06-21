@@ -1,6 +1,6 @@
 import requests
 
-def send_push_notifications(token, title, body, data=None):
+def send_push_notification(token, title, body, data=None):
     payload = {
         "to": token,
         "sound": "default",
@@ -13,3 +13,4 @@ def send_push_notifications(token, title, body, data=None):
     }
     response = requests.post("https://exp.host/--/api/v2/push/send", json=payload, headers=headers)
     return response.json()
+

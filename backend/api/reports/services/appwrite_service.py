@@ -101,20 +101,26 @@ def update_notification_status(report_id, ngo_id, new_status):
         print(f"[Appwrite] Failed to update the notification status: {e}")
         return None
 
+import io
 def upload_image_to_appwrite(image_file):
-    
     client = get_appwrite_client()
     storage = Storage(client)
+    
+    # Reset pointer (important)
+    image_file.seek(0)
+    
+    # Create file with InputFile wrapper
+    from appwrite.input_file import InputFile
 
     response = storage.create_file(
-        bucket_id=settings.APPWRITE_BUKCET_ID,
+        bucket_id=settings.APPWRITE_BUCKET_ID,
         file_id="unique()",
-        file=image_file,
-        read=["role:all"] 
+        file=InputFile.from_bytes(image_file.read(), filename=getattr(image_file, 'name', 'upload.jpg')),
+        permissions=["read(\"any\")"]
     )
-
+    
     return response["$id"]
 
 def get_image_url(file_id):
-    return f"{settings.APPWRITE_ENDPOINT}/v1/storage/buckets/{settings.APPWRITE_BUKCET_ID}/files/{file_id}/view?project={settings.APPWRITE_PROJECT_ID}"
+    return f"{settings.APPWRITE_ENDPOINT}/v1/storage/buckets/{settings.APPWRITE_BUCKET_ID}/files/{file_id}/view?project={settings.APPWRITE_PROJECT_ID}"
     

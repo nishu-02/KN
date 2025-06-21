@@ -11,15 +11,15 @@ def get_nearby_ngos(lat, lon, radius_km=5):
     return NGO.objects.annotate(
         distance=ExpressionWrapper(
             R * acos(
-                cos(Radians(value(lat))) *
-                cos(Radians(F('latitude'))) *
-                cos(Radians(F('longitude'))) - Radians(value(lon)) + 
-                sin(Radians(value(lat))) *
-                sin(Radians(F('latitude')))
+                cos(Radian(Value(lat))) *
+                cos(Radian(F('latitude'))) *
+                cos(Radian(F('longitude')) - Radian(Value(lon))) +
+                sin(Radian(Value(lat))) *
+                sin(Radian(F('latitude')))
             ),
             output_field=FloatField()
         )
-    ).filter(distance_lte=radius_km, verified=True)
+    ).filter(distance__lte=radius_km, verified=True)
 
 from django.contrib.gis.geos import Point
 from django.contrib.gis.db.models.functions import Distance

@@ -19,11 +19,13 @@ from django.conf import settings
 
 class RegisterNGOView(APIView):
     def post(self, request):
-        token = request.headers.get("X-Appwrite-Token")
-        if not token or not token.startswith('X'):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
             return Response({
                 "error": "Token Missing"
-            }, status=status.HTTP_401_UNAUTHORIZED  )
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        token = auth_header.split("Bearer ")[1]
 
         # Connecting to Appwrite
         client = Client()

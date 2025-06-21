@@ -1,10 +1,9 @@
 from django.urls import path
 from .views import (
     InjuryReportUploadView,
-    UpdateReportStatusView,
     NearbyReportsView,
     NGOSpecificReportsView,
-    ResolveReportView,
+    UpdateReportStatusView
 )
 
 from drf_spectacular.views import (
@@ -15,10 +14,9 @@ from drf_spectacular.views import (
 
 urlpatterns = [
     path('upload/', InjuryReportUploadView.as_view(), name='Injury_report_creation'),
-    path('update/', UpdateReportStatusView.as_view(), name='Update_report_status'),
     path('nearby/', NearbyReportsView.as_view(), name='nearby_reports'),
     path('ngo/', NGOSpecificReportsView.as_view(), name='ngo_reports'),
-    path('resolve-report/<uuid:report_id>/', ResolveReportView.as_view(), name='resolve-report'),
+    path('resolve-report/<uuid:report_id>/', UpdateReportStatusView.as_view(), name='resolve-report'),
 
 
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
