@@ -20,6 +20,8 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import AppwriteService from '../appwrite/service';
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,9 +35,21 @@ interface FormData {
   dateOfBirth: string;
 }
 
-const RegisterPage: React.FC = () => {
+interface NGOFormData extends FormData {
+  isNGO: boolean;
+  ngoName?: string;
+  ngoDescription?: string;
+  ngoCategory?: string;
+  ngoContactEmail?: string;
+  ngoContactPhone?: string;
+  ngoLatitude?: string;
+  ngoLongitude?: string;
+}
+
+const RegisterScreen: React.FC = () => {
+  const navigation = useNavigation();
   const theme = useTheme();
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<NGOFormData>({
     firstName: '',
     lastName: '',
     email: '',
@@ -43,13 +57,21 @@ const RegisterPage: React.FC = () => {
     password: '',
     confirmPassword: '',
     dateOfBirth: '',
+    isNGO: false,
+    ngoName: '',
+    ngoDescription: '',
+    ngoCategory: '',
+    ngoContactEmail: '',
+    ngoContactPhone: '',
+    ngoLatitude: '',
+    ngoLongitude: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleInputChange = (field: keyof FormData, value: string) => {
+  const handleInputChange = (field: keyof NGOFormData, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -58,13 +80,48 @@ const RegisterPage: React.FC = () => {
 
   const handleRegister = async () => {
     setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Registration data:', formData);
+    try {
+      // 1. Register with Appwrite
+      await AppwriteService.createAccount({
+        email: formData.email,
+        password: formData.password,
+        name: `${formData.firstName} ${formData.lastName}`,
+      });
+      // 2. Login to get JWT
+      await AppwriteService.login({
+        email: formData.email,
+        password: formData.password,
+      });
+      // 3. If NGO, register with Django backend
+      if (formData.isNGO) {
+        const jwt = AppwriteService.jwt;
+        await fetch('http://127.0.0.1:8000/ngo/register/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({
+            name: formData.ngoName,
+            description: formData.ngoDescription,
+            location: formData.ngoContactEmail, // or a location field
+            category: formData.ngoCategory,
+            contact_email: formData.ngoContactEmail,
+            contact_phone: formData.ngoContactPhone,
+            latitude: parseFloat(formData.ngoLatitude || '0'),
+            longitude: parseFloat(formData.ngoLongitude || '0'),
+          }),
+        });
+      }
+      // 4. Save Expo push token (pseudo, replace with actual token logic)
+      // await fetch('http://127.0.0.1:8000/reports/save-push-token/', { ... })
+      // 5. Success UI/redirect
+      alert('Registration successful!');
+    } catch (e) {
+      alert('Registration failed: ' + e.message);
+    } finally {
       setLoading(false);
-      // Handle registration logic here
-    }, 2000);
+    }
   };
 
   const isFormValid = () => {
@@ -101,11 +158,25 @@ const RegisterPage: React.FC = () => {
             <View style={styles.header}>
               
               <Text variant="headlineLarge" style={styles.title}>
-                Register your Account in Karuna Nidhan
+                Register with KarunaNidhan
               </Text>
-              <Text variant="bodyLarge" style={styles.subtitle}>
-                Begin your extraordinary journey with us
+              <Text style={{textAlign: 'center', marginBottom: 24}}>
+                Join us as a passionate rescuer or just a caring human.{"\n"}
+                Select the type of account you want to create.
               </Text>
+              <Button
+                mode="contained"
+                onPress={() => navigation.navigate('RegisterNGO' as never)}
+                style={{ marginBottom: 16 }}
+              >
+                Register as NGO
+              </Button>
+              <Button
+                mode="contained"
+                onPress={() => navigation.navigate('RegisterIndividual' as never)}
+              >
+                Register as Individual
+              </Button>
             </View>
 
                 {/* Name Fields */}
@@ -294,6 +365,158 @@ const RegisterPage: React.FC = () => {
                   />
                 </View>
 
+                {/* NGO Registration Toggle */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ color: 'white', marginRight: 8 }}>Registering as NGO?</Text>
+                  <Button mode={formData.isNGO ? 'contained' : 'outlined'} onPress={() => setFormData(f => ({ ...f, isNGO: !f.isNGO }))}>
+                    {formData.isNGO ? 'Yes' : 'No'}
+                  </Button>
+                </View>
+
+                {/* NGO Fields */}
+                {formData.isNGO && (
+                  <>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        label="NGO Name"
+                        value={formData.ngoName}
+                        onChangeText={t => handleInputChange('ngoName', t)}
+                        mode="outlined"
+                        style={styles.transparentInput}
+                        outlineStyle={styles.inputOutline}
+                        theme={{
+                          colors: {
+                            primary: 'rgba(255, 255, 255, 0.8)',
+                            onSurface: 'rgba(255, 255, 255, 0.9)',
+                            outline: 'rgba(255, 255, 255, 0.5)',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                          }
+                        }}
+                        textColor="white"
+                      />
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        label="Description"
+                        value={formData.ngoDescription}
+                        onChangeText={t => handleInputChange('ngoDescription', t)}
+                        mode="outlined"
+                        style={styles.transparentInput}
+                        outlineStyle={styles.inputOutline}
+                        theme={{
+                          colors: {
+                            primary: 'rgba(255, 255, 255, 0.8)',
+                            onSurface: 'rgba(255, 255, 255, 0.9)',
+                            outline: 'rgba(255, 255, 255, 0.5)',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                          }
+                        }}
+                        textColor="white"
+                      />
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        label="Category"
+                        value={formData.ngoCategory}
+                        onChangeText={t => handleInputChange('ngoCategory', t)}
+                        mode="outlined"
+                        style={styles.transparentInput}
+                        outlineStyle={styles.inputOutline}
+                        theme={{
+                          colors: {
+                            primary: 'rgba(255, 255, 255, 0.8)',
+                            onSurface: 'rgba(255, 255, 255, 0.9)',
+                            outline: 'rgba(255, 255, 255, 0.5)',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                          }
+                        }}
+                        textColor="white"
+                      />
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        label="Contact Email"
+                        value={formData.ngoContactEmail}
+                        onChangeText={t => handleInputChange('ngoContactEmail', t)}
+                        mode="outlined"
+                        style={styles.transparentInput}
+                        outlineStyle={styles.inputOutline}
+                        theme={{
+                          colors: {
+                            primary: 'rgba(255, 255, 255, 0.8)',
+                            onSurface: 'rgba(255, 255, 255, 0.9)',
+                            outline: 'rgba(255, 255, 255, 0.5)',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                          }
+                        }}
+                        textColor="white"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                      />
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        label="Contact Phone"
+                        value={formData.ngoContactPhone}
+                        onChangeText={t => handleInputChange('ngoContactPhone', t)}
+                        mode="outlined"
+                        style={styles.transparentInput}
+                        outlineStyle={styles.inputOutline}
+                        theme={{
+                          colors: {
+                            primary: 'rgba(255, 255, 255, 0.8)',
+                            onSurface: 'rgba(255, 255, 255, 0.9)',
+                            outline: 'rgba(255, 255, 255, 0.5)',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                          }
+                        }}
+                        textColor="white"
+                        keyboardType="phone-pad"
+                      />
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        label="Latitude"
+                        value={formData.ngoLatitude}
+                        onChangeText={t => handleInputChange('ngoLatitude', t)}
+                        mode="outlined"
+                        style={styles.transparentInput}
+                        outlineStyle={styles.inputOutline}
+                        theme={{
+                          colors: {
+                            primary: 'rgba(255, 255, 255, 0.8)',
+                            onSurface: 'rgba(255, 255, 255, 0.9)',
+                            outline: 'rgba(255, 255, 255, 0.5)',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                          }
+                        }}
+                        textColor="white"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        label="Longitude"
+                        value={formData.ngoLongitude}
+                        onChangeText={t => handleInputChange('ngoLongitude', t)}
+                        mode="outlined"
+                        style={styles.transparentInput}
+                        outlineStyle={styles.inputOutline}
+                        theme={{
+                          colors: {
+                            primary: 'rgba(255, 255, 255, 0.8)',
+                            onSurface: 'rgba(255, 255, 255, 0.9)',
+                            outline: 'rgba(255, 255, 255, 0.5)',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                          }
+                        }}
+                        textColor="white"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </>
+                )}
+
                 {/* Glowing Register Button */}
                 <View style={styles.buttonContainer}>
                   <LinearGradient
@@ -366,7 +589,7 @@ const RegisterPage: React.FC = () => {
                   </Text>
                   <Button
                     mode="text"
-                    onPress={() => console.log('Navigate to login')}
+                    onPress={() => navigation.navigate('SignIn' as never)}
                     compact
                     labelStyle={styles.loginButtonLabel}
                   >
@@ -569,4 +792,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RegisterPage;
+export default RegisterScreen;

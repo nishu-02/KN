@@ -1,43 +1,56 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { Provider as ReduxProvider, useDispatch, useSelector } from 'react-redux';
-import { Provider as PaperProvider } from 'react-native-paper';
+import { Provider as PaperProvider, ActivityIndicator } from 'react-native-paper';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import store, { RootState } from './core/redux/store';
-import { setUser, setInitialized } from './core/redux/slices/authSlice';
-import AppwriteService from './appwrite/service';
-
+import { initSession } from './core/redux/slices/authSlice';
 import LoginScreen from './screens/LoginScreen';
+import RegisterPage from './screens/RegisterScreen';
+import RegisterNGOScreen from './screens/RegisterNGOScreen';
+import RegisterIndividualScreen from './screens/RegisterIndividualScreen';
 // import SplashScreen from './src/screens/SplashScreen';
-// import SignInScreen from './src/screens/SignInScreen';
-// import SignUpScreen from './src/screens/SignUpScreen';
 // import HomeScreen from './src/screens/HomeScreen';
 
 const Stack = createNativeStackNavigator();
-const theme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: 'white' } };
+const theme = { 
+  ...DefaultTheme, 
+  colors: { 
+    ...DefaultTheme.colors, 
+    background: 'white' 
+  } 
+};
 
 function RootNavigator() {
   const dispatch = useDispatch();
-  const { initialized, authenticated } = useSelector((s: RootState) => s.auth);
+  const { initialized, authenticated, loading } = useSelector((s: RootState) => s.auth);
 
   useEffect(() => {
-    (async () => {
-      const svc = new AppwriteService();
-      try {
-        const user = await svc.getCurrentUser();
-        if (user) {
-          dispatch(setUser({ id: user.$id, name: user.name, email: user.email }));
-        }
-      } catch (err) {
-        console.log("No active session");
-      } finally {
-        dispatch(setInitialized(true));
-      }
-    })();
-  }, []);
+    // Initialize session on app start
+    dispatch(initSession());
+  }, [dispatch]);
 
-  if (!initialized) return null; // or a loading screen
+  // Show loading screen while initializing
+  if (!initialized || loading) {
+    return (
+      <PaperProvider>
+        <StatusBar barStyle="dark-content" />
+        <React.Fragment>
+          <ActivityIndicator 
+            animating 
+            size="large" 
+            style={{ 
+              flex: 1, 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              marginTop: 100 
+            }} 
+          />
+        </React.Fragment>
+      </PaperProvider>
+    );
+  }
 
   return (
     <NavigationContainer theme={theme}>
@@ -45,11 +58,30 @@ function RootNavigator() {
       <Stack.Navigator>
         {!authenticated ? (
           <>
-            <Stack.Screen name="SignIn" component={LoginScreen} options={{ headerShown: false }} />
-            {/* <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen 
+              name="SignIn" 
+              component={LoginScreen} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="Register" 
+              component={RegisterPage} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="RegisterNGO" 
+              component={RegisterNGOScreen} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="RegisterIndividual" 
+              component={RegisterIndividualScreen} 
+              options={{ headerShown: false }} 
+            />
           </>
         ) : (
           <>
+            {/* Add your authenticated screens here */}
             {/* <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} /> */}
           </>
         )}
@@ -58,12 +90,11 @@ function RootNavigator() {
   );
 }
 
-
 export default function App() {
   return (
     <ReduxProvider store={store}>
       <PaperProvider>
-        <RootNavigator/>
+        <RootNavigator />
       </PaperProvider>
     </ReduxProvider>
   );
