@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-p9t3q!th8&!tt@8=%rdzr0qe)t&ez1(yi83h4ob2p(6gono#w%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*', '192.168.0.104', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -91,13 +91,17 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+    'reports.authentication.AppwriteJWTAuthentication',
+    ),
 }
+
 
 APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
 APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")

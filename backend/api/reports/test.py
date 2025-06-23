@@ -6,6 +6,8 @@ One-click testing for your entire API flow!
 import requests
 import json
 import time
+import random
+import string
 from pathlib import Path
 
 class AppwriteAPITester:
@@ -13,7 +15,7 @@ class AppwriteAPITester:
         # Configuration
         self.appwrite_endpoint = "https://cloud.appwrite.io/v1"
         self.project_id = ""
-        self.django_base_url = "http://127.0.0.1:8000"
+        self.django_base_url = "http://192.168.0.104:8000"
         
         # Test credentials
         self.test_email = "test2@gmail.com"
@@ -207,29 +209,59 @@ class AppwriteAPITester:
             print(f"❌ Get nearby error: {str(e)}")
             return None
 
+    def generate_unique_email(self, prefix="testngo"):
+        """Generate a unique email for each test run"""
+        rand_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        return f"{prefix}_{rand_str}@gmail.com"
+
     def test_register_ngo(self):
-        """Test: Register as NGO"""
-        print("🏥 Testing: Register as NGO...")
-        
+        """Test: Register as NGO with a new user each time"""
+        print("🏥 Testing: Register as NGO with new user...")
+
+        # Generate unique email for user and NGO
+        unique_email = self.generate_unique_email()
+        self.test_email = unique_email
+        self.user_id = None  # Reset user_id for new registration
+
+        # ✅ Prepare full NGO payload with required fields
+        self.ngo_data = {
+            "name": "Helping Paws",
+            "description": "We rescue injured street animals.",
+            "location": "Delhi",
+            "email": unique_email,  # <-- This must match your model
+            "contact_email": unique_email,  # Optional/display use
+            "phone": "1234567890",
+            "latitude": 28.6139,
+            "longitude": 77.2090,
+            "category": "animal",  # <-- Must match model choices (not label!)
+            "website": "https://helpingpaws.org"
+        }
+
+        # Step 1: Register user in Appwrite
+        if not self.test_register_user_appwrite():
+            print("❌ Failed to register new user for NGO registration.")
+            return False
+
+        # Step 2: Login
+        if not self.login_to_appwrite():
+            print("❌ Failed to login new user for NGO registration.")
+            return False
+
+        # Step 3: Get JWT
+        if not self.get_jwt_token():
+            print("❌ Failed to get JWT for new user.")
+            return False
+
+        # Step 4: Make the POST request to Django
         url = f"{self.django_base_url}/ngo/register/"
-        
-        # Get auth headers and cookies
-        if self.jwt_token:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.jwt_token}"
-            }
-            cookies = None
-        elif self.session_id:
-            headers = {"Content-Type": "application/json"}
-            cookies = {f"a_session_{self.project_id}": self.session_id}
-        else:
-            headers = {"Content-Type": "application/json"}
-            cookies = None
-        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.jwt_token}"
+        }
+
         try:
-            response = requests.post(url, headers=headers, json=self.ngo_data, cookies=cookies)
-            
+            response = requests.post(url, headers=headers, json=self.ngo_data)
+
             if response.status_code in [200, 201]:
                 print(f"✅ NGO registration successful: {response.status_code}")
                 result = response.json()
@@ -239,10 +271,11 @@ class AppwriteAPITester:
                 print(f"❌ NGO registration failed: {response.status_code}")
                 print(f"Response: {response.text}")
                 return False
-                
+
         except Exception as e:
             print(f"❌ NGO registration error: {str(e)}")
             return False
+
 
     def test_get_ngo_reports(self):
         """Test: Get NGO assigned reports"""
@@ -445,22 +478,22 @@ class AppwriteAPITester:
         # Step 0: Register user (Appwrite)
         self.test_register_user_appwrite()
         # Step 1: Authentication
-        if not self.login_to_appwrite():
-            print("💥 Authentication failed. Stopping tests.")
-            return
+        # if not self.login_to_appwrite():
+        #     print("💥 Authentication failed. Stopping tests.")
+        #     return
         # Step 2: Try to get JWT token (optional, will fallback to session)
-        jwt_success = self.get_jwt_token()
-        if not jwt_success:
-            print("⚠️  JWT not available, will use session-based auth")
-        print("\n" + "=" * 30)
-        print("🧪 RUNNING DJANGO API TESTS")
-        print("=" * 30)
+        # jwt_success = self.get_jwt_token()
+        # if not jwt_success:
+        #     print("⚠️  JWT not available, will use session-based auth")
+        # print("\n" + "=" * 30)
+        # print("🧪 RUNNING DJANGO API TESTS")
+        # print("=" * 30)
         # Step 3: Register as NGO first
         self.test_register_ngo()
         print()
         # Step 4: Upload a report
-        uploaded_report_id = self.test_upload_report()
-        print()
+        # uploaded_report_id = self.test_upload_report()
+        # print()
         # # Step 5: Get nearby reports
         # self.test_get_nearby_reports()
         # print()
@@ -475,7 +508,7 @@ class AppwriteAPITester:
         # self.test_resolve_report(test_report_id)
         # print()
         # # Step 9: Save Expo push token
-        self.test_save_push_token()
+        # self.test_save_push_token()
         # Cleanup
         self.logout_from_appwrite()
         end_time = time.time()

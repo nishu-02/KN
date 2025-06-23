@@ -18,31 +18,10 @@ from reports.permissions import IsAppwriteUser
 from django.conf import settings
 
 class RegisterNGOView(APIView):
+    permission_classes = [IsAppwriteUser]
+
     def post(self, request):
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return Response({
-                "error": "Token Missing"
-            }, status=status.HTTP_401_UNAUTHORIZED)
-
-        token = auth_header.split("Bearer ")[1]
-
-        # Connecting to Appwrite
-        client = Client()
-        client.set_endpoint(settings.APPWRITE_ENDPOINT)
-        client.set_project(settings.APPWRITE_PROJECT_ID)
-        client.set_key(settings.APPWRITE_API_KEY)
-        account = Account(client)
-
-        try:
-            client.set_jwt(token)
-            user = account.get()
-            user_id = user['$id']
-        except Exception as e:
-            return Response({
-                "error": "Invalid Appwrite Token"
-            }, status=status.HTTP_401_UNAUTHORIZED)
-
+        user_id = request.user_id  # get from authentication
 
         # Saving the NGO info
         data = request.data.copy()
