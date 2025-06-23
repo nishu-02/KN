@@ -21,22 +21,25 @@ class RegisterNGOView(APIView):
     permission_classes = [IsAppwriteUser]
 
     def post(self, request):
-        user_id = request.user_id  # get from authentication
+        # Get the user_id from Appwrite (set in the permission class)
+        user_id = getattr(request, 'user_id', None)
 
-        # Saving the NGO info
+        if not user_id:
+            return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Prevent duplicate NGO registration by same user
+        if NGO.objects.filter(ngo_id=user_id).exists():
+            return Response({"error": "NGO already registered with this user."}, status=status.HTTP_409_CONFLICT)
+
         data = request.data.copy()
-        data['ngo_id'] = user_id
+        data["appwrite_user_id"] = user_id  # Injecting Appwrite user ID
 
         serializer = NGORegisterSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
-            return Response({
-                "message": "Your NGO registers successfully"
-            }, status=status.HTTP_201_CREATED)
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
+            return Response({"message": "NGO registered successfully"}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # View to search the NGO
 
