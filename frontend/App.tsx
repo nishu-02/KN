@@ -10,8 +10,8 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterPage from './screens/RegisterScreen';
 import RegisterNGOScreen from './screens/RegisterNGOScreen';
 import RegisterIndividualScreen from './screens/RegisterIndividualScreen';
-// import SplashScreen from './src/screens/SplashScreen';
-// import HomeScreen from './src/screens/HomeScreen';
+import NGODashboardScreen from './screens/NGODashboardScreen';
+import UserDashboardScreen from './screens/UserDashboardScreen';
 
 const Stack = createNativeStackNavigator();
 const theme = { 
@@ -81,8 +81,16 @@ function RootNavigator() {
           </>
         ) : (
           <>
-            {/* Add your authenticated screens here */}
-            {/* <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} /> */}
+            <Stack.Screen
+              name="UserDashboard"
+              component={UserDashboardScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="NGODashboard"
+              component={NGODashboardScreen}
+              options={{ headerShown: false }}
+            />
           </>
         )}
       </Stack.Navigator>
