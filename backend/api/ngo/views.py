@@ -28,7 +28,7 @@ class RegisterNGOView(APIView):
             return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Prevent duplicate NGO registration by same user
-        if NGO.objects.filter(ngo_id=user_id).exists():
+        if NGO.objects.filter(appwrite_user_id=user_id).exists():
             return Response({"error": "NGO already registered with this user."}, status=status.HTTP_409_CONFLICT)
 
         data = request.data.copy()
