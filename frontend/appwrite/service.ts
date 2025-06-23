@@ -12,6 +12,16 @@ type LoginUserAccount = {
   password: string;
 };
 
+function decodeJWT(token: string): { exp?: number } {
+  try {
+    const payload = token.split('.')[1];
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return decoded;
+  } catch {
+    return {};
+  }
+}
+
 class AppwriteService {
   private endpoint: string;
   private projectId: string;
@@ -228,6 +238,32 @@ class AppwriteService {
       await this.clearSession();
       return false;
     }
+  }
+
+  private isJWTExpired(): boolean {
+    if (!this.jwt) return true;
+    const { exp } = decodeJWT(this.jwt);
+    if (!exp) return true;
+    // exp is in seconds, Date.now() in ms
+    return Date.now() >= exp * 1000;
+  }
+
+  async getValidJWT(): Promise<string | null> {
+    if (this.jwt && !this.isJWTExpired()) {
+      return this.jwt;
+    }
+    // If session exists, get a new JWT
+    if (this.sessionId) {
+      try {
+        const jwtResponse = await this.request('/account/jwt', 'POST');
+        await this.saveSession(jwtResponse.jwt);
+        return jwtResponse.jwt;
+      } catch (e) {
+        await this.clearSession();
+        return null;
+      }
+    }
+    return null;
   }
 
   get hasJWT() {

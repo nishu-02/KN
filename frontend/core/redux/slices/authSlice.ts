@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AppwriteService from '../../../appwrite/service';
+import * as Notifications from 'expo-notifications';
 
 interface User {
   $id: string;
@@ -83,6 +84,28 @@ export const createUserAccount = createAsyncThunk(
       return account;
     } catch (err: any) {
       throw err.message || 'Account creation failed';
+    }
+  }
+);
+
+export const saveExpoPushToken = createAsyncThunk(
+  'auth/saveExpoPushToken',
+  async (_, thunkAPI) => {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        throw new Error('Push notification permissions not granted');
+      }
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      // Optionally send tokenData.data to your backend here
+      return tokenData.data;
+    } catch (err: any) {
+      throw err.message || 'Failed to get push token';
     }
   }
 );
@@ -186,6 +209,21 @@ const authSlice = createSlice({
       .addCase(createUserAccount.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Account creation failed';
+      })
+      // SAVE EXPO PUSH TOKEN
+      .addCase(saveExpoPushToken.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(saveExpoPushToken.fulfilled, (state, action) => {
+        // Optionally store the push token in state if you want
+        // state.pushToken = action.payload;
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(saveExpoPushToken.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to save push token';
       });
   },
 });
