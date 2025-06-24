@@ -144,9 +144,16 @@ class UpdateReportStatusView(APIView):
             if report.status == 'resolved':
                 return Response({"message": "Report already resolved"}, status=status.HTTP_200_OK)
 
+            # Udpate report status
             report.status = new_status
             report.save()
 
+            # Save status history
+            ReportStatusHistory.objects.create(
+                report=report,
+                status=new_status
+            )
+            
             # Update Appwrite notification status
             update_notification_status(report_id, request.user_id, new_status)
 

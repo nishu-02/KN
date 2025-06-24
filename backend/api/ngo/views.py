@@ -2,9 +2,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import NGO
-from reports.models import InjuryReport
+from reports.models import InjuryReport, ExpoPushToken, ReportStatusHistory
 from .serializers import NGORegisterSerializer
-from reports.serializer import InjuryReportSerializer
+from reports.serializers import InjuryReportSerializer
 from rest_framework.generics import ListAPIView
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import PageNumberPagination
@@ -121,3 +121,28 @@ class AssignedReportView(APIView):
         serializer = InjuryReportSerializer(reports, many=True)
         return Response(serializer.data)
 
+class ReportTimelineView(APIView):
+    permission_classes = [isAppwriteUser]
+
+    def get(self, request, report_id):
+        try:
+            report = InjuryReport.objects.get(report_id=report_id)
+
+            if report.ngo_assigned_id not in [report.user_id, report.ngo_assigned_id]:
+                return Response({
+                    "error": "Unauthorized"
+                }, status=status.HTTP_401_UNAUTHORIZED)
+
+            histroy = report.status_history.all().order_by('-updated_at')
+            data= [{
+                "status": h.status,
+                "udpated_at": h.updated_at
+            } for h in history]
+
+            return Response({
+                "timeline": data
+            })
+        except InjuryReport.DoesNotExist:
+            return Response({
+                "error": "Not found"
+            }, status=status.HTTP_404_NOT_FOUND)

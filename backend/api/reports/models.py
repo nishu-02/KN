@@ -27,3 +27,12 @@ class InjuryReport(models.Model):
 class ExpoPushToken(models.Model):
     user_id = models.CharField(max_length=255, unique=True)
     token = models.CharField(max_length=255)
+
+class ReportStatusHistory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey('InjuryReport', on_delete=models.CASCADE, related_name='status_history')
+    status = models.CharField(max_length=20)
+    updated_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.report.report_id} - {self.status} at {self.updated_at}"
