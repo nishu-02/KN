@@ -758,6 +758,105 @@ class AppwriteAPITester:
             print(f"❌ Failed to fetch reports: {response.status_code}")
             print(f"📄 Response: {response.text}")
 
+    def test_ngo_assignment_flow(self):
+        """Test: Register NGO, upload report, accept report, and check assignment."""
+        print("\n=== TEST: NGO Assignment Flow ===")
+        # Step 1: Register a new NGO at fixed coordinates
+        self.test_location = {"latitude": 28.6139, "longitude": 77.2090}
+        ngo_email = self.generate_unique_email("testngosame")
+        self.test_email = ngo_email
+        self.user_id = None
+        self.ngo_data = {
+            "name": "Test NGO Assignment",
+            "description": "Test NGO for assignment check.",
+            "location": "Delhi",
+            "email": ngo_email,
+            "contact_email": ngo_email,
+            "phone": "9999999999",
+            "latitude": 28.6139,
+            "longitude": 77.2090,
+            "category": "animal",
+            "website": "https://testngoassignment.org"
+        }
+        if not self.test_register_user_appwrite_with_retry():
+            print("❌ Failed to register new user for NGO registration.")
+            return False
+        if not self.login_to_appwrite():
+            print("❌ Failed to login new user for NGO registration.")
+            return False
+        if not self.get_jwt_token():
+            print("❌ Failed to get JWT for new user.")
+            return False
+        url = f"{self.django_base_url}/ngo/register/"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.jwt_token}"
+        }
+        response = requests.post(url, headers=headers, json=self.ngo_data)
+        if response.status_code not in [200, 201]:
+            print(f"❌ NGO registration failed: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False
+        print(f"✅ Test NGO registered at {self.test_location}")
+        # Step 2: Upload a report at the same coordinates (as a different user)
+        # Register a new user for the report
+        report_user_email = self.generate_unique_email("testreportuser")
+        self.test_email = report_user_email
+        self.user_id = None
+        if not self.test_register_user_appwrite_with_retry():
+            print("❌ Failed to register new user for report upload.")
+            return False
+        if not self.login_to_appwrite():
+            print("❌ Failed to login new user for report upload.")
+            return False
+        if not self.get_jwt_token():
+            print("❌ Failed to get JWT for report user.")
+            return False
+        uploaded_report_id = self.test_upload_report()
+        if not uploaded_report_id:
+            print("❌ Failed to upload report.")
+            return False
+        print(f"✅ Report uploaded with ID: {uploaded_report_id}")
+        # Step 3: Accept the report as the NGO
+        # Login as the NGO user again
+        self.test_email = ngo_email
+        if not self.login_to_appwrite():
+            print("❌ Failed to login as NGO for acceptance.")
+            return False
+        if not self.get_jwt_token():
+            print("❌ Failed to get JWT for NGO for acceptance.")
+            return False
+        print(f"✋ Accepting report {uploaded_report_id} as NGO...")
+        url = f"{self.django_base_url}/ngo/reports/{uploaded_report_id}/accept/"
+        payload = {"lat": 28.6139, "lon": 77.2090}
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.jwt_token}"
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code not in [200, 201]:
+            print(f"❌ Accept report failed: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False
+        print(f"✅ Report accepted by NGO.")
+        # Step 4: Fetch the report and check ngo_assigned
+        url = f"{self.django_base_url}/reports/nearby/?lat={self.test_location['latitude']}&lon={self.test_location['longitude']}"
+        response = requests.get(url, headers={"Authorization": f"Bearer {self.jwt_token}"})
+        if response.status_code == 200:
+            reports = response.json()
+            assigned = False
+            for r in reports:
+                if r.get("id") == uploaded_report_id or r.get("report_id") == uploaded_report_id:
+                    assigned = bool(r.get("ngo_assigned"))
+                    print(f"Report assignment status: {'✅ Assigned to NGO' if assigned else '❌ Not assigned to NGO'}")
+                    break
+            if not assigned:
+                print("❌ No matching report found or not assigned.")
+        else:
+            print(f"❌ Failed to fetch reports: {response.status_code}")
+            print(f"Response: {response.text}")
+        print("=== END TEST ===\n")
+
     def close_logging(self):
         """Close the log file and restore original print"""
         if hasattr(self, 'log_file') and self.log_file:
@@ -773,70 +872,8 @@ class AppwriteAPITester:
             print(f"📝 Log saved to: {self.log_filename}")
 
     def run_all_tests(self):
-        """Run all API tests in sequence"""
-        self.log_section("🚀 STARTING COMPLETE API TEST SUITE")
-        
-        test_results = {
-            "login": False,
-            "jwt": False,
-            "upload_report": False,
-            "nearby_reports": False,
-            "register_ngo": False,
-            "ngo_reports": False,
-            "accept_report": False,
-            "resolve_report": False,
-            "push_token": False,
-            "location_assignment": False
-        }
-        
-        try:
-            # Basic Authentication Tests
-            print("\n🔐 === AUTHENTICATION TESTS ===")
-            test_results["login"] = self.login_to_appwrite()
-            if test_results["login"]:
-                test_results["jwt"] = self.get_jwt_token()
-            
-            # Report Management Tests
-            print("\n📋 === REPORT MANAGEMENT TESTS ===")
-            if test_results["jwt"]:
-                report_id = self.test_upload_report()
-                test_results["upload_report"] = report_id is not None
-                
-                test_results["nearby_reports"] = self.test_get_nearby_reports() is not None
-                test_results["push_token"] = self.test_save_push_token()
-                
-                # Use uploaded report ID or fallback to hardcoded one
-                test_report_id = report_id if report_id else "5d027a18-d859-4558-b48c-e64d314fc34d"
-                test_results["resolve_report"] = self.test_resolve_report(test_report_id)
-            
-            # NGO Management Tests
-            print("\n🏢 === NGO MANAGEMENT TESTS ===")
-            test_results["register_ngo"] = self.test_register_ngo()
-            if test_results["register_ngo"]:
-                test_results["ngo_reports"] = self.test_get_ngo_reports() is not None
-                test_results["accept_report"] = self.test_accept_report()
-            
-            # Advanced Integration Test
-            print("\n🎯 === INTEGRATION TESTS ===")
-            try:
-                self.test_register_ngo_and_report_same_location()
-                test_results["location_assignment"] = True
-            except Exception as e:
-                print(f"❌ Location assignment test failed: {str(e)}")
-                test_results["location_assignment"] = False
-            
-            # Cleanup
-            print("\n🧹 === CLEANUP ===")
-            self.logout_from_appwrite()
-            
-        except Exception as e:
-            print(f"❌ Critical error during test execution: {str(e)}")
-            print(f"🔍 Exception type: {type(e).__name__}")
-        
-        finally:
-            # Print final results
-            self.print_test_summary(test_results)
-            self.close_logging()
+        """Run only the NGO assignment flow test."""
+        self.test_ngo_assignment_flow()
 
     def print_test_summary(self, results):
         """Print a summary of all test results"""

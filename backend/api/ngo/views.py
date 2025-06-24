@@ -4,6 +4,7 @@ from rest_framework import status
 from .models import NGO
 from reports.models import InjuryReport
 from .serializers import NGORegisterSerializer
+from reports.serializer import InjuryReportSerializer
 from rest_framework.generics import ListAPIView
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import PageNumberPagination
@@ -111,3 +112,12 @@ class AcceptReportView(APIView):
             return Response({
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class AssignedReportView(APIView):
+    permission_classes = [IsAppwriteUser]
+
+    def get(self, request):
+        reports = InjuryReport.objects.filter(ngo_assigned=request.user_id)
+        serializer = InjuryReportSerializer(reports, many=True)
+        return Response(serializer.data)
+
