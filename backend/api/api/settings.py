@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'reports',
     'ngo',
+    'notifications',
     'rest_framework',
     'drf_spectacular',
 ]
