@@ -146,3 +146,18 @@ class ReportTimelineView(APIView):
             return Response({
                 "error": "Not found"
             }, status=status.HTTP_404_NOT_FOUND)
+
+class DashboardStatsView(APIView):
+    permission_classes = [isAppwriteUser]
+
+    def get(self, request):
+        ngo_id = request.user_id
+        total = InjuryReport.objects.filter(ngo_assigned_id).count()
+        in_progress = InjuryReport.objects.filter(ngo_assigned_id=ngo_id, status='in_progress').count()
+        resolved = InjuryReport.objects.filter(ngo_assigned_id=ngo_id, status='resolve').count()
+
+        return Response({
+            "total_reports": total,
+            "in_progress": in_progress,
+            "resolved": resolved,
+        })
