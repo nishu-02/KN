@@ -153,7 +153,7 @@ class UpdateReportStatusView(APIView):
                 report=report,
                 status=new_status
             )
-            
+
             # Update Appwrite notification status
             update_notification_status(report_id, request.user_id, new_status)
 
@@ -210,3 +210,4 @@ class SavePushTokenView(APIView):
             "message": "Token saved"
         }, status=status.HTTP_200_OK)
 
+class ReportDetailVew
