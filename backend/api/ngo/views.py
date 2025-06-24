@@ -15,6 +15,7 @@ from appwrite.client import Client
 from appwrite.services.account import Account
 from reports.services.appwrite_service import update_notification_status
 from reports.permissions import IsAppwriteUser
+from notifications.utils import send_and_log_notification
 
 from django.conf import settings
 
@@ -66,13 +67,13 @@ class AcceptReportView(APIView):
             lat = request.data.get('lat')
             lon = request.data.get('lon')
             
-            if not lat or not lan:
+            if not lat or not lon:
                 return Response({
                     "error": "Missing NGO location coordinates"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Fetch the report
-            report = InjuryReport.objects.select_for_update().get(report=report_id)
+            report = InjuryReport.objects.select_for_update().get(report_id=report_id)
             
             if report.status != 'pending':
                 return Response({
@@ -83,18 +84,24 @@ class AcceptReportView(APIView):
             report.ngo_assigned_id = request.user_id
             report.status = 'in_progress'
             report.save()
-
-            #Updating the appwrite notification
             update_notification_status(report_id, request.user_id, 'accepted')
-
+            # Notify the user that their report was accepted
+            send_and_log_notification(
+                recipient_id=report.user_id,
+                recipient_type="user",
+                title="Report Accepted",
+                body="Your report has been accepted by an NGO and is now in progress.",
+                data={"report_id": str(report.report_id), "status": "in_progress"},
+                report=report
+            )
             #Return route info
             return Response({
                 "message": "Report accepted successfully",
                 "report_id": report_id,
                 "route":{
                     "from": {
-                        "lat": request.data['lat'],
-                        "lon": request.data['lon']
+                        "lat": lat,
+                        "lon": lon
                     },
                     "to": {
                         "lat": report.latitude,
@@ -108,35 +115,35 @@ class AcceptReportView(APIView):
                 "error": "Report not found."
             }, status=status.HTTP_404_NOT_FOUND)
 
-        except Exception as e:
+        except Exception:
             return Response({
-                "error": str(e)
+                "error": "Internal server error."
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class AssignedReportView(APIView):
     permission_classes = [IsAppwriteUser]
 
     def get(self, request):
-        reports = InjuryReport.objects.filter(ngo_assigned=request.user_id)
+        reports = InjuryReport.objects.filter(ngo_assigned_id=request.user_id)
         serializer = InjuryReportSerializer(reports, many=True)
         return Response(serializer.data)
 
 class ReportTimelineView(APIView):
-    permission_classes = [isAppwriteUser]
+    permission_classes = [IsAppwriteUser]
 
     def get(self, request, report_id):
         try:
             report = InjuryReport.objects.get(report_id=report_id)
 
-            if report.ngo_assigned_id not in [report.user_id, report.ngo_assigned_id]:
+            if request.user_id not in [report.user_id, report.ngo_assigned_id]:
                 return Response({
                     "error": "Unauthorized"
                 }, status=status.HTTP_401_UNAUTHORIZED)
 
-            histroy = report.status_history.all().order_by('-updated_at')
+            history = report.status_history.all().order_by('-updated_at')
             data= [{
                 "status": h.status,
-                "udpated_at": h.updated_at
+                "updated_at": h.updated_at
             } for h in history]
 
             return Response({
@@ -148,13 +155,13 @@ class ReportTimelineView(APIView):
             }, status=status.HTTP_404_NOT_FOUND)
 
 class DashboardStatsView(APIView):
-    permission_classes = [isAppwriteUser]
+    permission_classes = [IsAppwriteUser]
 
     def get(self, request):
         ngo_id = request.user_id
-        total = InjuryReport.objects.filter(ngo_assigned_id).count()
+        total = InjuryReport.objects.filter(ngo_assigned_id=ngo_id).count()
         in_progress = InjuryReport.objects.filter(ngo_assigned_id=ngo_id, status='in_progress').count()
-        resolved = InjuryReport.objects.filter(ngo_assigned_id=ngo_id, status='resolve').count()
+        resolved = InjuryReport.objects.filter(ngo_assigned_id=ngo_id, status='resolved').count()
 
         return Response({
             "total_reports": total,

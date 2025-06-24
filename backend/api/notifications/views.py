@@ -1,19 +1,19 @@
 from rest_framework.views import APIView
-from rest_framework.reponse import Response
+from rest_framework.response import Response
 from rest_framework import status
 
 from .models import NotificationHistory
-
-from reports.permissions import isAppwriteUser
+from reports.permissions import IsAppwriteUser
+from .serializers import NotificationHistorySerializer
 
 
 class UserNotificationListView(APIView):
-    permission_classes = [isAppwriteUser]
+    permission_classes = [IsAppwriteUser]
 
     def get(self, request):
-        notifications = NotificationHistory.objects.filter(user_id=request.user_id)
+        notifications = NotificationHistory.objects.filter(recipient_id=request.user_id)
         data = [{
-            "id": str(n.id),
+            "id": str(n.notification_id),
             "title": n.title,
             "body": n.body,
             "data": n.data,
@@ -25,23 +25,24 @@ class UserNotificationListView(APIView):
             "notifications": data
         })
 
-class MarkNotificationAsViewed(APIView):
-    permission_classes = [isAppwriteUser]
+
+class MarkNotificationAsRead(APIView):
+    permission_classes = [IsAppwriteUser]
 
     def patch(self, request, notification_id):
         try:
             notification = NotificationHistory.objects.get(notification_id=notification_id)
 
-            if notification.ngo_id != request.user_id:
+            if notification.recipient_id != request.user_id:
                 return Response({
                     "error": "Unauthorized"
-                },status=status.HTTP_401_UNAUTHORIZED)
+                }, status=status.HTTP_401_UNAUTHORIZED)
 
-            notification.is_viewed = True
+            notification.is_read = True
             notification.save()
 
             serializer = NotificationHistorySerializer(notification)
-            return Response (
+            return Response(
                 serializer.data,
                 status=status.HTTP_200_OK
             )

@@ -15,7 +15,7 @@ from reports.permissions import IsAppwriteUser
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports
-from reports.services.utils import send_push_notification
+from notifications.utils import send_and_log_notification
 
 from .notification import notify_user
 
@@ -77,36 +77,19 @@ class InjuryReportUploadView(APIView):
                 longitude=lon,
                 report_data=ai_response.get('result'),
             )
-
-            create_appwrite_report(report) # Saving to the database
-
+            create_appwrite_report(report)
             lat = location.get('latitude')
             lon = location.get('longitude')
-
             nearby_ngos = get_nearby_ngos(lat, lon, radius_km=5)
-            
-            # Send push notification to all nearby NGO device tokens
             for ngo in nearby_ngos:
-                notification_data = {
-                    "notification_id": str(uuid.uuid4()),
-                    "report_id": str(report.report_id),
-                    "ngo_id": ngo.ngo_id,
-                    "status": "pending",
-                    "created_at": str(report.created_at),
-                }
-                create_appwrite_notification(notification_data)
-
-                # Get the Expo push token for this NGO
-                try:
-                    ngo_token_obj = ExpoPushToken.objects.get(user_id=ngo.ngo_id)
-                    send_push_notification(
-                        ngo_token_obj.token,
-                        title="New Report Assigned",
-                        body="A new injury report has been assigned to you!"
-                    )
-                except ExpoPushToken.DoesNotExist:
-                    pass  # No push token for this NGO
-
+                send_and_log_notification(
+                    recipient_id=ngo.ngo_id,
+                    recipient_type="ngo",
+                    title="New Report Assigned",
+                    body="A new injury report has been assigned to you!",
+                    data={"report_id": str(report.report_id)},
+                    report=report
+                )
             serializer = InjuryReportSerializer(report)
 
             # Remove or comment out undefined send_push_notification and ngo_device_token
@@ -164,7 +147,14 @@ class UpdateReportStatusView(APIView):
             else:  # resolved
                 body = "Your report has been marked as resolved. Thank you for your support!"
 
-            notify_user(report.user_id, title, body)
+            send_and_log_notification(
+                recipient_id=report.user_id,
+                recipient_type="user",
+                title=title,
+                body=body,
+                data={"report_id": str(report.report_id), "status": new_status},
+                report=report
+            )
 
             return Response({
                 "message": f"Report marked as {new_status}"
@@ -210,4 +200,4 @@ class SavePushTokenView(APIView):
             "message": "Token saved"
         }, status=status.HTTP_200_OK)
 
-class ReportDetailVew
+# class ReportDetailVew
