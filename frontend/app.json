@@ -19,10 +19,10 @@
       },
       "edgeToEdgeEnabled": true
     },
-    "web": {
-    },
+    "web": {},
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-notifications"
     ]
   }
 }

@@ -1,25 +1,37 @@
 from django.db.models import F, Func, FloatField, ExpressionWrapper, Value
-from math import radians, cos, sin, acos
 from ngo.models import NGO
+from reports.models import InjuryReport
 
 class Radian(Func):
     function = 'RADIANS'
+    template = '%(function)s(%(expressions)s)'
+
+class Cos(Func):
+    function = 'COS'
+    template = '%(function)s(%(expressions)s)'
+
+class Sin(Func):
+    function = 'SIN'
+    template = '%(function)s(%(expressions)s)'
+
+class Acos(Func):
+    function = 'ACOS'
     template = '%(function)s(%(expressions)s)'
 
 def get_nearby_ngos(lat, lon, radius_km=5):
     R = 6371.0
     return NGO.objects.annotate(
         distance=ExpressionWrapper(
-            R * acos(
-                cos(Radians(value(lat))) *
-                cos(Radians(F('latitude'))) *
-                cos(Radians(F('longitude'))) - Radians(value(lon)) + 
-                sin(Radians(value(lat))) *
-                sin(Radians(F('latitude')))
+            R * Acos(
+                Cos(Radian(Value(lat))) *
+                Cos(Radian(F('latitude'))) *
+                Cos(Radian(F('longitude')) - Radian(Value(lon))) +
+                Sin(Radian(Value(lat))) *
+                Sin(Radian(F('latitude')))
             ),
             output_field=FloatField()
         )
-    ).filter(distance_lte=radius_km, verified=True)
+    ).filter(distance__lte=radius_km, verified=True)
 
 from django.contrib.gis.geos import Point
 from django.contrib.gis.db.models.functions import Distance

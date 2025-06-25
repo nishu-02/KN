@@ -18,44 +18,28 @@ from reports.permissions import IsAppwriteUser
 from django.conf import settings
 
 class RegisterNGOView(APIView):
+    permission_classes = [IsAppwriteUser]
+
     def post(self, request):
-        token = request.headers.get("X-Appwrite-Token")
-        if not token or not token.startswith('X'):
-            return Response({
-                "error": "Token Missing"
-            }, status=status.HTTP_401_UNAUTHORIZED  )
+        # Get the user_id from Appwrite (set in the permission class)
+        user_id = getattr(request, 'user_id', None)
 
-        # Connecting to Appwrite
-        client = Client()
-        client.set_endpoint(settings.APPWRITE_ENDPOINT)
-        client.set_project(settings.APPWRITE_PROJECT_ID)
-        client.set_key(settings.APPWRITE_API_KEY)
-        account = Account(client)
+        if not user_id:
+            return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        try:
-            client.set_jwt(token)
-            user = account.get()
-            user_id = user['$id']
-        except Exception as e:
-            return Response({
-                "error": "Invalid Appwrite Token"
-            }, status=status.HTTP_401_UNAUTHORIZED)
+        # Prevent duplicate NGO registration by same user
+        if NGO.objects.filter(appwrite_user_id=user_id).exists():
+            return Response({"error": "NGO already registered with this user."}, status=status.HTTP_409_CONFLICT)
 
-
-        # Saving the NGO info
         data = request.data.copy()
-        data['ngo_id'] = user_id
+        data["appwrite_user_id"] = user_id  # Injecting Appwrite user ID
 
         serializer = NGORegisterSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
-            return Response({
-                "message": "Your NGO registers successfully"
-            }, status=status.HTTP_201_CREATED)
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
+            return Response({"message": "NGO registered successfully"}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # View to search the NGO
 
