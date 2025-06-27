@@ -2,6 +2,7 @@ from django.db import models
 import uuid
 
 from ngo.models import NGO
+from volunteers.models import Volunteer
 
 class InjuryReport(models.Model):
     """
@@ -20,6 +21,8 @@ class InjuryReport(models.Model):
 
     ngo_assigned = models.ForeignKey(NGO, on_delete=models.SET_NULL, null=True, related_name="reports_taken_by")
     ngo = models.ForeignKey(NGO, on_delete=models.SET_NULL, null=True, related_name="reports_created_by")
+   
+    volunteer_assigned = models.ForeignKey(Volunteer, on_delete=models.SET_NULL, null=True, blank=True, related_name="reports_taken_by_volunteer")
     
     def __str__(self):
         return f"Report {self.id} - {self.status}"

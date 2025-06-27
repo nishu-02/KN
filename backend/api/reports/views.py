@@ -125,6 +125,7 @@ class UpdateReportStatusView(APIView):
     def patch(self, request, report_id):
         new_status = request.data.get('status')
         allowed_statuses = ['in_progress', 'resolved']
+        volunteer_id = request.data.get('volunteer_id')
 
         if new_status not in allowed_statuses:
             return Response({"error": "Invalid status provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -132,16 +133,34 @@ class UpdateReportStatusView(APIView):
         try:
             report = InjuryReport.objects.get(report_id=report_id)
 
-            if report.ngo_assigned_id != request.user_id:
-                return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+            # Allow either assigned NGO or assigned volunteer to update
+            is_ngo = hasattr(report, 'ngo_assigned') and report.ngo_assigned and report.ngo_assigned.ngo_id == request.user_id
+            is_volunteer = hasattr(report, 'volunteer_assigned') and report.volunteer_assigned and report.volunteer_assigned.user_id == request.user_id
 
-            # Check if already resolved
-            if report.status == 'resolved':
-                return Response({"message": "Report already resolved"}, status=status.HTTP_200_OK)
-
-            # Udpate report status
-            report.status = new_status
-            report.save()
+            # If not assigned, allow first volunteer/NGO to claim
+            if report.status == 'pending':
+                if volunteer_id:
+                    from volunteers.models import Volunteer
+                    try:
+                        volunteer = Volunteer.objects.get(user_id=volunteer_id)
+                        report.volunteer_assigned = volunteer
+                        report.status = new_status
+                        report.save()
+                        is_volunteer = True
+                    except Volunteer.DoesNotExist:
+                        return Response({"error": "Volunteer not found"}, status=status.HTTP_404_NOT_FOUND)
+                elif is_ngo:
+                    report.status = new_status
+                    report.save()
+                else:
+                    return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+            else:
+                if not (is_ngo or is_volunteer):
+                    return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+                if report.status == 'resolved':
+                    return Response({"message": "Report already resolved"}, status=status.HTTP_200_OK)
+                report.status = new_status
+                report.save()
 
             # Save status history
             ReportStatusHistory.objects.create(
@@ -155,7 +174,7 @@ class UpdateReportStatusView(APIView):
             # Send push notification to user
             title = "Report Status Updated"
             if new_status == "in_progress":
-                body = "Your report is now being looked into by the NGO."
+                body = "Your report is now being looked into by a volunteer or NGO."
             else:  # resolved
                 body = "Your report has been marked as resolved. Thank you for your support!"
 
