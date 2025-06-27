@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'reports',
     'ngo',
     'notifications',
+    'volunteers',
     'rest_framework',
     'drf_spectacular',
 ]

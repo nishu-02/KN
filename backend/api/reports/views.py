@@ -16,6 +16,7 @@ from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports
 from notifications.utils import send_and_log_notification
+from volunteers.utils import get_nearby_volunteers
 
 from .notification import notify_user
 
@@ -87,6 +88,17 @@ class InjuryReportUploadView(APIView):
                     recipient_type="ngo",
                     title="New Report Assigned",
                     body="A new injury report has been assigned to you!",
+                    data={"report_id": str(report.report_id)},
+                    report=report
+                )
+            # Notify nearby volunteers
+            nearby_volunteers = get_nearby_volunteers(lat, lon, radius_km=5)
+            for volunteer in nearby_volunteers:
+                send_and_log_notification(
+                    recipient_id=volunteer.user_id,
+                    recipient_type="volunteer",
+                    title="New Report in Your Area!",
+                    body="A new animal injury report needs your help!",
                     data={"report_id": str(report.report_id)},
                     report=report
                 )
