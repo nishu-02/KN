@@ -1,7 +1,7 @@
 from django.db.models import F, Func, FloatField, ExpressionWrapper, Value
 from ngo.models import NGO
 from reports.models import InjuryReport
-from volunteers.models import Volunteer
+from .user_profile import UserProfile
 
 class Radian(Func):
     function = 'RADIANS'
@@ -45,7 +45,7 @@ def get_nearby_reports(lat, lon, radius_km=5):
 
 def get_nearby_volunteers(lat, lon, radius_km=5):
     R = 6371.0
-    return Volunteer.objects.filter(is_active=True).annotate(
+    return UserProfile.objects.filter(is_volunteer=True).exclude(latitude=None, longitude=None).annotate(
         distance=ExpressionWrapper(
             R * Acos(
                 Cos(Radian(Value(lat))) *

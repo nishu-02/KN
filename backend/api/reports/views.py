@@ -16,7 +16,7 @@ from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports
 from notifications.utils import send_and_log_notification
-from volunteers.utils import get_nearby_volunteers
+from reports.services.geo import get_nearby_volunteers
 
 from .notification import notify_user
 
@@ -104,13 +104,6 @@ class InjuryReportUploadView(APIView):
                 )
             serializer = InjuryReportSerializer(report)
 
-            # Remove or comment out undefined send_push_notification and ngo_device_token
-            # send_push_notification(
-            #     ngo_device_token,
-            #     title="New Report Assigned",
-            #     body="A new injury report has been assigned to you!"
-            # )
-
             return Response({
                 "message": "Injury report generated successfully",
                 "report": serializer.data,
@@ -135,20 +128,20 @@ class UpdateReportStatusView(APIView):
 
             # Allow either assigned NGO or assigned volunteer to update
             is_ngo = hasattr(report, 'ngo_assigned') and report.ngo_assigned and report.ngo_assigned.ngo_id == request.user_id
-            is_volunteer = hasattr(report, 'volunteer_assigned') and report.volunteer_assigned and report.volunteer_assigned.user_id == request.user_id
+            is_volunteer = hasattr(report, 'volunteer_assigned') and report.volunteer_assigned and report.volunteer_assigned.appwrite_user_id == request.user_id
 
             # If not assigned, allow first volunteer/NGO to claim
             if report.status == 'pending':
                 if volunteer_id:
-                    from volunteers.models import Volunteer
+                    from .user_profile import UserProfile
                     try:
-                        volunteer = Volunteer.objects.get(user_id=volunteer_id)
+                        volunteer = UserProfile.objects.get(appwrite_user_id=volunteer_id, is_volunteer=True)
                         report.volunteer_assigned = volunteer
                         report.status = new_status
                         report.save()
                         is_volunteer = True
-                    except Volunteer.DoesNotExist:
-                        return Response({"error": "Volunteer not found"}, status=status.HTTP_404_NOT_FOUND)
+                    except UserProfile.DoesNotExist:
+                        return Response({"error": "Volunteer not found or not eligible"}, status=status.HTTP_404_NOT_FOUND)
                 elif is_ngo:
                     report.status = new_status
                     report.save()
