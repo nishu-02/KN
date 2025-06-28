@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import NGO
@@ -8,7 +9,6 @@ from reports.serializers import InjuryReportSerializer
 from rest_framework.generics import ListAPIView
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny
 
 import appwrite
 from appwrite.client import Client
@@ -54,7 +54,7 @@ class NGOSearchView(ListAPIView):
     queryset = NGO.objects.filter()
     serializer_class = NGORegisterSerializer
     pagination_class = NGOSearchPagination
-    permission_classes = [AllowAny]
+    permission_classes = [IsAppwriteUser]
     filter_backends = [SearchFilter]
     search_fields = ['name','description', 'category', 'location']
 
@@ -168,3 +168,10 @@ class DashboardStatsView(APIView):
             "in_progress": in_progress,
             "resolved": resolved,
         })
+
+class NGODetailView(RetrieveAPIView):
+    queryset = NGO.objects.all()
+    serializer_class = NGORegisterSerializer
+    permission_classes = [IsAppwriteUser]
+    lookup_field = 'ngo_id' # ngo_id not pk
+
