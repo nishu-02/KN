@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from reports.models import InjuryReport
-from reports.user_profile import UserProfile
+from user.models import UserProfile
 from reports.serializers import InjuryReportSerializer
 from rest_framework.permissions import IsAuthenticated
 

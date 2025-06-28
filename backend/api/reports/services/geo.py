@@ -1,7 +1,7 @@
 from django.db.models import F, Func, FloatField, ExpressionWrapper, Value
 from ngo.models import NGO
 from reports.models import InjuryReport
-from .user_profile import UserProfile
+from user.models import UserProfile
 
 class Radian(Func):
     function = 'RADIANS'

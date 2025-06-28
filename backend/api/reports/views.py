@@ -10,6 +10,7 @@ from .models import (
 from ngo.models import NGO
 from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
+from user.models import UserProfile
 
 from reports.permissions import IsAppwriteUser
 from .services.appwrite_service import create_appwrite_report
