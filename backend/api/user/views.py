@@ -42,7 +42,7 @@ class ToggleVolunteerView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ApplyVolunteerView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request, ngo_id):
         try:
@@ -52,9 +52,9 @@ class ApplyVolunteerView(APIView):
             application, created = VolunteerApplication.objects.get_or_create(
                 user_id = request.user_id,
                 ngo=ngo,
-                defaults = (
+                defaults = {
                     'message': message
-                )
+                }
             )
 
             if not created:
@@ -70,3 +70,4 @@ class ApplyVolunteerView(APIView):
             return Response({
                 "error": "NGO not found"
             }, status=status.HTTP_404_NOT_FOUND)
+

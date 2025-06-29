@@ -6,6 +6,8 @@ from .views import (
     AssignedReportView,
     DashboardStatsView,
     NGODetailView,
+    NGOViewVolunteerRequests,
+    UpdateApplicationStatusView,
     )
 
 urlpatterns = [
@@ -15,4 +17,8 @@ urlpatterns = [
     path('assigned-reports/', AssignedReportView.as_view(), name='assigned-reports'),
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashbaord'),
     path('<str:ngo_id>/', NGODetailView.as_view(), name='ngo-detail'),
+
+    # Application part
+    path('applications/', NGOViewVolunteerRequests.as_view(), name='view-volunteers'),
+    path('applications/<int:application_id>/accept/', UpdateApplicationStatusView.as_view(), name='update-volunteer-status'),
 ]

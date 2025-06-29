@@ -12,7 +12,7 @@ from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
 from user.models import UserProfile
 
-from reports.permissions import IsAppwriteUser
+from rest_framework.permissions import IsAuthenticated
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports
@@ -24,7 +24,7 @@ from .notification import notify_user
 import io
 
 class InjuryReportUploadView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
     """
     API view to handle injury report submissions.
     """
@@ -114,7 +114,7 @@ class InjuryReportUploadView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UpdateReportStatusView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def patch(self, request, report_id):
         new_status = request.data.get('status')
@@ -189,7 +189,7 @@ class UpdateReportStatusView(APIView):
             return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
 
 class NearbyReportsView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         lat = float(request.query_params.get('lat'))
@@ -200,7 +200,7 @@ class NearbyReportsView(APIView):
         return Response(serializer.data)
 
 class NGOSpecificReportsView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user_id = request.user_id

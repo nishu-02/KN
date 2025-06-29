@@ -3,12 +3,12 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import NotificationHistory
-from reports.permissions import IsAppwriteUser
+from rest_framework.permissions import IsAuthenticated
 from .serializers import NotificationHistorySerializer
 
 
 class UserNotificationListView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         notifications = NotificationHistory.objects.filter(recipient_id=request.user_id)
@@ -27,7 +27,7 @@ class UserNotificationListView(APIView):
 
 
 class MarkNotificationAsRead(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def patch(self, request, notification_id):
         try:
