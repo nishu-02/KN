@@ -1,6 +1,7 @@
 from django.db.models import F, Func, FloatField, ExpressionWrapper, Value
 from ngo.models import NGO
 from reports.models import InjuryReport
+from user.models import UserProfile
 
 class Radian(Func):
     function = 'RADIANS'
@@ -33,9 +34,6 @@ def get_nearby_ngos(lat, lon, radius_km=5):
         )
     ).filter(distance__lte=radius_km, verified=True)
 
-from django.contrib.gis.geos import Point
-from django.contrib.gis.db.models.functions import Distance
-
 def get_nearby_reports(lat, lon, radius_km=5):
     return InjuryReport.objects.filter(
         status='pending',
@@ -44,3 +42,18 @@ def get_nearby_reports(lat, lon, radius_km=5):
         longitude__gte=lon - 0.05,
         longitude__lte=lon + 0.05,
     )
+
+def get_nearby_volunteers(lat, lon, radius_km=5):
+    R = 6371.0
+    return UserProfile.objects.filter(is_volunteer=True).exclude(latitude=None, longitude=None).annotate(
+        distance=ExpressionWrapper(
+            R * Acos(
+                Cos(Radian(Value(lat))) *
+                Cos(Radian(F('latitude'))) *
+                Cos(Radian(F('longitude')) - Radian(Value(lon))) +
+                Sin(Radian(Value(lat))) *
+                Sin(Radian(F('latitude')))
+            ),
+            output_field=FloatField()
+        )
+    ).filter(distance__lte=radius_km)

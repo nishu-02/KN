@@ -2,6 +2,7 @@ from django.db import models
 import uuid
 
 from ngo.models import NGO
+from user.models import UserProfile
 
 class InjuryReport(models.Model):
     """
@@ -20,6 +21,8 @@ class InjuryReport(models.Model):
 
     ngo_assigned = models.ForeignKey(NGO, on_delete=models.SET_NULL, null=True, related_name="reports_taken_by")
     ngo = models.ForeignKey(NGO, on_delete=models.SET_NULL, null=True, related_name="reports_created_by")
+   
+    volunteer_assigned = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name="reports_taken_by_volunteer")
     
     def __str__(self):
         return f"Report {self.id} - {self.status}"
@@ -27,3 +30,12 @@ class InjuryReport(models.Model):
 class ExpoPushToken(models.Model):
     user_id = models.CharField(max_length=255, unique=True)
     token = models.CharField(max_length=255)
+
+class ReportStatusHistory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey('InjuryReport', on_delete=models.CASCADE, related_name='status_history')
+    status = models.CharField(max_length=20)
+    updated_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.report.report_id} - {self.status} at {self.updated_at}"

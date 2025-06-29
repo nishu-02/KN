@@ -10,19 +10,21 @@ from .models import (
 from ngo.models import NGO
 from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
+from user.models import UserProfile
 
-from reports.permissions import IsAppwriteUser
+from rest_framework.permissions import IsAuthenticated
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports
-from reports.services.utils import send_push_notification
+from notifications.utils import send_and_log_notification
+from reports.services.geo import get_nearby_volunteers
 
 from .notification import notify_user
 
 import io
 
 class InjuryReportUploadView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
     """
     API view to handle injury report submissions.
     """
@@ -77,44 +79,31 @@ class InjuryReportUploadView(APIView):
                 longitude=lon,
                 report_data=ai_response.get('result'),
             )
-
-            create_appwrite_report(report) # Saving to the database
-
+            create_appwrite_report(report)
             lat = location.get('latitude')
             lon = location.get('longitude')
-
             nearby_ngos = get_nearby_ngos(lat, lon, radius_km=5)
-            
-            # Send push notification to all nearby NGO device tokens
             for ngo in nearby_ngos:
-                notification_data = {
-                    "notification_id": str(uuid.uuid4()),
-                    "report_id": str(report.report_id),
-                    "ngo_id": ngo.ngo_id,
-                    "status": "pending",
-                    "created_at": str(report.created_at),
-                }
-                create_appwrite_notification(notification_data)
-
-                # Get the Expo push token for this NGO
-                try:
-                    ngo_token_obj = ExpoPushToken.objects.get(user_id=ngo.ngo_id)
-                    send_push_notification(
-                        ngo_token_obj.token,
-                        title="New Report Assigned",
-                        body="A new injury report has been assigned to you!"
-                    )
-                except ExpoPushToken.DoesNotExist:
-                    pass  # No push token for this NGO
-
+                send_and_log_notification(
+                    recipient_id=ngo.ngo_id,
+                    recipient_type="ngo",
+                    title="New Report Assigned",
+                    body="A new injury report has been assigned to you!",
+                    data={"report_id": str(report.report_id)},
+                    report=report
+                )
+            # Notify nearby volunteers
+            nearby_volunteers = get_nearby_volunteers(lat, lon, radius_km=5)
+            for volunteer in nearby_volunteers:
+                send_and_log_notification(
+                    recipient_id=volunteer.user_id,
+                    recipient_type="volunteer",
+                    title="New Report in Your Area!",
+                    body="A new animal injury report needs your help!",
+                    data={"report_id": str(report.report_id)},
+                    report=report
+                )
             serializer = InjuryReportSerializer(report)
-
-            # Remove or comment out undefined send_push_notification and ngo_device_token
-            # send_push_notification(
-            #     ngo_device_token,
-            #     title="New Report Assigned",
-            #     body="A new injury report has been assigned to you!"
-            # )
 
             return Response({
                 "message": "Injury report generated successfully",
@@ -125,11 +114,12 @@ class InjuryReportUploadView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UpdateReportStatusView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def patch(self, request, report_id):
         new_status = request.data.get('status')
         allowed_statuses = ['in_progress', 'resolved']
+        volunteer_id = request.data.get('volunteer_id')
 
         if new_status not in allowed_statuses:
             return Response({"error": "Invalid status provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -137,15 +127,40 @@ class UpdateReportStatusView(APIView):
         try:
             report = InjuryReport.objects.get(report_id=report_id)
 
-            if report.ngo_assigned_id != request.user_id:
-                return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+            # Allow either assigned NGO or assigned volunteer to update
+            is_ngo = hasattr(report, 'ngo_assigned') and report.ngo_assigned and report.ngo_assigned.ngo_id == request.user_id
+            is_volunteer = hasattr(report, 'volunteer_assigned') and report.volunteer_assigned and report.volunteer_assigned.appwrite_user_id == request.user_id
 
-            # Check if already resolved
-            if report.status == 'resolved':
-                return Response({"message": "Report already resolved"}, status=status.HTTP_200_OK)
+            # If not assigned, allow first volunteer/NGO to claim
+            if report.status == 'pending':
+                if volunteer_id:
+                    from .user_profile import UserProfile
+                    try:
+                        volunteer = UserProfile.objects.get(appwrite_user_id=volunteer_id, is_volunteer=True)
+                        report.volunteer_assigned = volunteer
+                        report.status = new_status
+                        report.save()
+                        is_volunteer = True
+                    except UserProfile.DoesNotExist:
+                        return Response({"error": "Volunteer not found or not eligible"}, status=status.HTTP_404_NOT_FOUND)
+                elif is_ngo:
+                    report.status = new_status
+                    report.save()
+                else:
+                    return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+            else:
+                if not (is_ngo or is_volunteer):
+                    return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+                if report.status == 'resolved':
+                    return Response({"message": "Report already resolved"}, status=status.HTTP_200_OK)
+                report.status = new_status
+                report.save()
 
-            report.status = new_status
-            report.save()
+            # Save status history
+            ReportStatusHistory.objects.create(
+                report=report,
+                status=new_status
+            )
 
             # Update Appwrite notification status
             update_notification_status(report_id, request.user_id, new_status)
@@ -153,11 +168,18 @@ class UpdateReportStatusView(APIView):
             # Send push notification to user
             title = "Report Status Updated"
             if new_status == "in_progress":
-                body = "Your report is now being looked into by the NGO."
+                body = "Your report is now being looked into by a volunteer or NGO."
             else:  # resolved
                 body = "Your report has been marked as resolved. Thank you for your support!"
 
-            notify_user(report.user_id, title, body)
+            send_and_log_notification(
+                recipient_id=report.user_id,
+                recipient_type="user",
+                title=title,
+                body=body,
+                data={"report_id": str(report.report_id), "status": new_status},
+                report=report
+            )
 
             return Response({
                 "message": f"Report marked as {new_status}"
@@ -167,7 +189,7 @@ class UpdateReportStatusView(APIView):
             return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
 
 class NearbyReportsView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         lat = float(request.query_params.get('lat'))
@@ -178,7 +200,7 @@ class NearbyReportsView(APIView):
         return Response(serializer.data)
 
 class NGOSpecificReportsView(APIView):
-    permission_classes = [IsAppwriteUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user_id = request.user_id
@@ -203,3 +225,4 @@ class SavePushTokenView(APIView):
             "message": "Token saved"
         }, status=status.HTTP_200_OK)
 
+# class ReportDetailVew

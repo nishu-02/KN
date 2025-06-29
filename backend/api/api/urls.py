@@ -21,4 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('reports/', include('reports.urls')),
     path('ngo/', include('ngo.urls')),
+    path('user/', include('user.urls')),
 ]
