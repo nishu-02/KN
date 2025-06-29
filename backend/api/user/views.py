@@ -40,3 +40,33 @@ class ToggleVolunteerView(APIView):
             return Response({'is_volunteer': profile.is_volunteer}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ApplyVolunteerView(APIView):
+    permission_classes = [IsAppwriteUser]
+    
+    def post(self, request, ngo_id):
+        try:
+            ngo = NGO.objects.get(ngo_id=ngo_id)
+            message = request.data.get('message', '')
+
+            application, created = VolunteerApplication.objects.get_or_create(
+                user_id = request.user_id,
+                ngo=ngo,
+                defaults = (
+                    'message': message
+                )
+            )
+
+            if not created:
+                return Response({
+                    'error': 'You have already applied to this NGO'
+                }, status=status.HTTP_201_CREATED)
+
+            return Response({
+                "message": "Application submitted successfully"
+            }, status=status.HTTP_200_OK)
+
+        except NGO.DoesNotExist:
+            return Response({
+                "error": "NGO not found"
+            }, status=status.HTTP_404_NOT_FOUND)
