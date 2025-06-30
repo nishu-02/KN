@@ -1,7 +1,6 @@
-
 export async function savePushToken(userId: string, token: string) {
   try {
-    const response = await fetch('http://192.168.0.104:8000/reports/save-push-token/', {
+    const response = await fetch('http://192.168.29.139:8000/reports/save-push-token/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

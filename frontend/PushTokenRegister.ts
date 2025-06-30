@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { savePushToken } from '../../frontend/api/savePushToken';
+import { savePushToken } from './api/savePushToken';
 
 export async function registerForPushNotificationsAsync(userId: string) {
   let token;

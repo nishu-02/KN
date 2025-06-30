@@ -4,9 +4,10 @@ import { TextInput, Button, ActivityIndicator, Text, Snackbar } from 'react-nati
 import { useDispatch, useSelector } from 'react-redux';
 import { loginUser, resetError } from '../core/redux/slices/authSlice';
 import AppwriteService from '../appwrite/service';
+import type { AppDispatch } from '../core/redux/store';
 
-export default function LoginScreen({ navigation }) {
-  const dispatch = useDispatch();
+export default function LoginScreen({ navigation }: { navigation: any }) {
+  const dispatch = useDispatch<AppDispatch>();
   const { loading, error, authenticated, user } = useSelector((state: any) => state.auth);
   
   const [email, setEmail] = useState('');

@@ -169,7 +169,8 @@ class AppwriteService {
       // Create session
       const session = await this.request('/account/sessions/email', 'POST', { 
         email, 
-        password 
+        password, 
+        options: { persistent: true }, // NEW LINE
       });
 
       // Save session ID

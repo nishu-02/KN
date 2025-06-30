@@ -6,7 +6,7 @@ import * as Location from "expo-location";
 import { createUserAccount, loginUser, resetError } from "../core/redux/slices/authSlice";
 import { RootState } from "../core/redux/store";
 
-export default function RegisterNGOScreen({ navigation }) {
+export default function RegisterNGOScreen({ navigation }: any) {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state: RootState) => state.auth);
   
@@ -115,7 +115,7 @@ export default function RegisterNGOScreen({ navigation }) {
       }
 
       try {
-        const response = await fetch("http://192.168.0.104:8000/ngo/register/", {
+        const response = await fetch("http://192.168.29.139:8000/ngo/register/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
