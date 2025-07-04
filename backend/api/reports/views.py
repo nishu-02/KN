@@ -1,39 +1,34 @@
 import base64
 import uuid
-from rest_framework.views import APIView
+import io
+from rest_framework import status, viewsets, mixins
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
-from .models import (
-    InjuryReport,
-    ExpoPushToken,
-)
+from rest_framework.permissions import IsAuthenticated
+from .models import InjuryReport, ExpoPushToken
 from ngo.models import NGO
 from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
 from user.models import UserProfile
-
-from rest_framework.permissions import IsAuthenticated
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
-from reports.services.geo import get_nearby_ngos, get_nearby_reports
+from reports.services.geo import get_nearby_ngos, get_nearby_reports, get_nearby_volunteers
 from notifications.utils import send_and_log_notification
-from reports.services.geo import get_nearby_volunteers
-
 from .notification import notify_user
+from rest_framework.generics import CreateAPIView
 
-import io
-
-class InjuryReportUploadView(APIView):
+class InjuryReportViewSet(viewsets.ModelViewSet):
+    queryset = InjuryReport.objects.all()
+    serializer_class = InjuryReportSerializer
     permission_classes = [IsAuthenticated]
-    """
-    API view to handle injury report submissions.
-    """
-    def post(self, request):
+
+    def create(self, request, *args, **kwargs):
+        # Custom create for injury report upload (with image, AI, notifications)
         try:
             image_file = request.FILES.get('image')
             user_id = request.data.get('user_id')
             location = request.data.get('location')
-            # Parse location if it's a JSON string
+
             if isinstance(location, str):
                 try:
                     import json
@@ -43,33 +38,27 @@ class InjuryReportUploadView(APIView):
 
             if not image_file or not user_id or not location:
                 return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Encode image to base64
+
             image_bytes = image_file.read()
             base64_image = base64.b64encode(image_bytes).decode('utf-8')
 
-            # Analyze the image using Gemini AI
             ai_response = analyze_animal_injury(base64_image)
 
             if not ai_response.get('success'):
                 return Response({"error": ai_response.get('error')}, status=status.HTTP_502_BAD_GATEWAY)
 
-            # Reset a stream using already-read bytes
             file_like_object = io.BytesIO(image_bytes)
-            file_like_object.name = image_file.name  # Appwrite needs filename
+            file_like_object.name = image_file.name
 
             file_id = upload_image_to_appwrite(file_like_object)
-            # Upload image to Appwrite
-            # file_id = upload_image_to_appwrite(image_file)
             image_url = get_image_url(file_id)
 
-            # Extract latitude and longitude from location
             lat = location.get('latitude') if isinstance(location, dict) else None
             lon = location.get('longitude') if isinstance(location, dict) else None
+
             if lat is None or lon is None:
                 return Response({"error": "Location must include latitude and longitude"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Saving to DB
             report = InjuryReport.objects.create(
                 report_id=uuid.uuid4(),
                 user_id=user_id,
@@ -79,10 +68,11 @@ class InjuryReportUploadView(APIView):
                 longitude=lon,
                 report_data=ai_response.get('result'),
             )
+
             create_appwrite_report(report)
-            lat = location.get('latitude')
-            lon = location.get('longitude')
+
             nearby_ngos = get_nearby_ngos(lat, lon, radius_km=5)
+
             for ngo in nearby_ngos:
                 send_and_log_notification(
                     recipient_id=ngo.ngo_id,
@@ -92,8 +82,9 @@ class InjuryReportUploadView(APIView):
                     data={"report_id": str(report.report_id)},
                     report=report
                 )
-            # Notify nearby volunteers
+
             nearby_volunteers = get_nearby_volunteers(lat, lon, radius_km=5)
+
             for volunteer in nearby_volunteers:
                 send_and_log_notification(
                     recipient_id=volunteer.user_id,
@@ -103,7 +94,8 @@ class InjuryReportUploadView(APIView):
                     data={"report_id": str(report.report_id)},
                     report=report
                 )
-            serializer = InjuryReportSerializer(report)
+
+            serializer = self.get_serializer(report)
 
             return Response({
                 "message": "Injury report generated successfully",
@@ -113,25 +105,23 @@ class InjuryReportUploadView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class UpdateReportStatusView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def patch(self, request, report_id):
+    @action(detail=True, methods=['patch'], url_path='update-status')
+    def update_status(self, request, pk=None):
+        # Custom action for updating report status
         new_status = request.data.get('status')
         allowed_statuses = ['in_progress', 'resolved']
+
         volunteer_id = request.data.get('volunteer_id')
 
         if new_status not in allowed_statuses:
             return Response({"error": "Invalid status provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            report = InjuryReport.objects.get(report_id=report_id)
+            report = self.get_object()
 
-            # Allow either assigned NGO or assigned volunteer to update
             is_ngo = hasattr(report, 'ngo_assigned') and report.ngo_assigned and report.ngo_assigned.ngo_id == request.user_id
             is_volunteer = hasattr(report, 'volunteer_assigned') and report.volunteer_assigned and report.volunteer_assigned.appwrite_user_id == request.user_id
 
-            # If not assigned, allow first volunteer/NGO to claim
             if report.status == 'pending':
                 if volunteer_id:
                     from .user_profile import UserProfile
@@ -157,19 +147,15 @@ class UpdateReportStatusView(APIView):
                 report.save()
 
             # Save status history
-            ReportStatusHistory.objects.create(
-                report=report,
-                status=new_status
-            )
-
+            # ReportStatusHistory.objects.create(report=report, status=new_status)
             # Update Appwrite notification status
-            update_notification_status(report_id, request.user_id, new_status)
+            # update_notification_status(report_id, request.user_id, new_status)
 
             # Send push notification to user
             title = "Report Status Updated"
             if new_status == "in_progress":
                 body = "Your report is now being looked into by a volunteer or NGO."
-            else:  # resolved
+            else:
                 body = "Your report has been marked as resolved. Thank you for your support!"
 
             send_and_log_notification(
@@ -181,48 +167,35 @@ class UpdateReportStatusView(APIView):
                 report=report
             )
 
-            return Response({
-                "message": f"Report marked as {new_status}"
-            }, status=status.HTTP_200_OK)
+            return Response({"message": f"Report marked as {new_status}"}, status=status.HTTP_200_OK)
 
         except InjuryReport.DoesNotExist:
             return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
 
-class NearbyReportsView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
+    @action(detail=False, methods=['get'], url_path='nearby')
+    def nearby_reports(self, request):
         lat = float(request.query_params.get('lat'))
         lon = float(request.query_params.get('lon'))
-
         nearby_reports = get_nearby_reports(lat, lon, radius_km=5)
-        serializer = InjuryReportSerializer(nearby_reports, many=True)
+        serializer = self.get_serializer(nearby_reports, many=True)
         return Response(serializer.data)
 
-class NGOSpecificReportsView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
+    @action(detail=False, methods=['get'], url_path='ngo-specific')
+    def ngo_specific_reports(self, request):
         user_id = request.user_id
         reports = InjuryReport.objects.filter(ngo_assigned_id=user_id)
-        serializer = InjuryReportSerializer(reports, many=True)
+        serializer = self.get_serializer(reports, many=True)
         return Response(serializer.data)
+    permission_classes = [IsAuthenticated]
 
-class SavePushTokenView(APIView):
-    def post(self, request):
+class SavePushTokenView(CreateAPIView):
+    queryset = ExpoPushToken.objects.all()
+    permission_classes = []
+
+    def post(self, request, *args, **kwargs):
         user_id = request.data.get('user_id')
         token = request.data.get('token')
         if not user_id or not token:
-            return Response({
-                "error": "Missing fields"
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        ExpoPushToken.objects.update_or_create(user_id=user_id, default={
-            "token": token
-        })
-        
-        return Response({
-            "message": "Token saved"
-        }, status=status.HTTP_200_OK)
-
-# class ReportDetailVew
+            return Response({"error": "Missing fields"}, status=status.HTTP_400_BAD_REQUEST)
+        ExpoPushToken.objects.update_or_create(user_id=user_id, defaults={"token": token})
+        return Response({"message": "Token saved"}, status=status.HTTP_200_OK)
