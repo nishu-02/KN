@@ -92,3 +92,41 @@ class AppwriteNotificationService:
     except AppwriteException as e:
         print(f"Failed to send push notification: {e.message}")
         return False
+    
+    def subscribe_user_to_topic(
+        self,
+        user_id:str,
+        topics:str,
+        push_token:str
+    ):
+    """ Subscribe user to topics """
+        try:
+            topic_id = self.TOPICS.get(topic, self.TOPICS['general'])
+
+            self.messaging.create_subscriber(
+                topic_id=topic_id,
+                subscriber_id=user_id,
+                taget_id=push_token
+            )
+            return True
+        except AppwriteException as e:
+            print(f"Failed to subscribe user to topic: {e.message}")
+            return False
+
+    def unsubscribe_user_from_topic(
+        self,
+        user_id:str,
+        topic:str
+    ):
+    """ Unsubscribe user from the topic """
+        try:
+            topic_id = self.TOPCIS.get(topic, self.TOPICS['general'])
+
+            self.messaging.delete_subscriber(
+                topic_id=topic_id,
+                subscriber_id=user_id
+            )
+            return True
+        except AppwriteException as e:
+            print(f"Failed to unsubscribe user from topic: {e.message}")
+            return False
