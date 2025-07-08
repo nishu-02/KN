@@ -1,73 +1,97 @@
-from rest_framework.views import APIView
+from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework import status
-from reports.models import InjuryReport
-from user.models import UserProfile
-from reports.serializers import InjuryReportSerializer
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
-class UserOwnReportsView(APIView):
+from reports.models import InjuryReport
+from user.models import UserProfile
+from ngo.models import NGO, VolunteerApplication
+from reports.serializers import InjuryReportSerializer
+from user.serializers import UserProfileSerializer
+
+class UserReportViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
-    def get(self, request):
+
+    @action(detail=False, methods=['get'] url_path='own')
+    def own(self, request):
+        """ Get reports by the current user """
         user_id = request.user_id
         reports = InjuryReport.objects.filter(user_id=user_id)
         serializer = InjuryReportSerializer(reports, many=True)
-        return Response(serializer.data)
+        return Response(serailizer.data)
 
-class UserHelpedReportsView(APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request):
+    @action(deatil=false, methods=['get'], url_path='helped')
+    def helped(self, request):
+        """ Get Reports where the user served as a volunteer """
         user_id = request.user_id
         try:
             profile = UserProfile.objects.get(appwrite_user_id=user_id)
         except UserProfile.DoesNotExist:
-            return Response([], status=status.HTTP_200_OK)
+            return Response(
+                [],
+                status=status.HTTP_200_OK
+            )
+        
         reports = InjuryReport.objects.filter(volunteer_assigned=profile)
         serializer = InjuryReportSerializer(reports, many=True)
         return Response(serializer.data)
 
-class ToggleVolunteerView(APIView):
+class UserProfileViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
-    def patch(self, request):
+
+    @action(deatil=False, methods=['patch'], url_path='toggle-volunteer')
+    def toggle_volunteer(self, request):
+        """ Toggle whether the user is a volunteer """
+        
         user_id = request.user_id
         is_volunteer = request.data.get('is_volunteer')
-        if is_volunteer is None:
-            return Response({'error': 'is_volunteer required'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            profile, _ = UserProfile.objects.get_or_create(appwrite_user_id=user_id)
-            profile.is_volunteer = bool(is_volunteer)
-            profile.save()
-            return Response({'is_volunteer': profile.is_volunteer}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class ApplyVolunteerView(APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request, ngo_id):
+        if is_volunteer is None:
+            return Response({
+                "error": "Missing is_volunteer parameter"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
-            ngo = NGO.objects.get(ngo_id=ngo_id)
-            message = request.data.get('message', '')
+            profile = UserProfile.objects.get(appwrite_user_id=user_id)
+            profile.is_volunteer = is_volunteer
+            profile.save()
+        
+            return Response({
+                "is_volunteer": profile.is_volunteer
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class VolunteerApplicationViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, ngo_id=None):
+        """ Apply to become a volunteer for an NGO """
+
+        try:
+            ngo = NGO.objects.filter(ngo_id=ngo_id)
+            message = request.data.get('message')
 
             application, created = VolunteerApplication.objects.get_or_create(
-                user_id = request.user_id,
+                user_id=appwrite_user_id,
                 ngo=ngo,
-                defaults = {
+                defaults={
                     'message': message
                 }
             )
 
             if not created:
                 return Response({
-                    'error': 'You have already applied to this NGO'
-                }, status=status.HTTP_201_CREATED)
-
+                    'error': "You have already applied to this NGO"
+                }, status=status.HTTP_409_CONFLICT)
+            
             return Response({
-                "message": "Application submitted successfully"
-            }, status=status.HTTP_200_OK)
-
+                "message": "Application submitted successfully",
+            }, status=status.HTTP_201_CREATED)
+        
         except NGO.DoesNotExist:
             return Response({
                 "error": "NGO not found"
             }, status=status.HTTP_404_NOT_FOUND)
-
