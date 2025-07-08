@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
-
 import UserHomeScreen from "../user/UserHomeScreen";
 import DonationsScreen from "../user/DonationsScreen";
 import NGOListScreen from "../user/NGOListScreen";
@@ -44,13 +43,12 @@ export default function UserBottomTabs() {
   //   setTimeout(() => setShowCamera(false), 100);
   // };
 
-
-  const navigation = useNavigation();
+  // If you have a navigation type, import it and use it here. Otherwise, use 'any' as a quick fix:
+  const navigation = useNavigation<any>();
 
   const handleCameraPress = () => {
     navigation.navigate("Camera");
   };
-
 
   return (
     <View style={styles.mainContainer}>
@@ -145,7 +143,7 @@ export default function UserBottomTabs() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    // backgroundColor: "red"
   },
   contentContainer: {
     flex: 1,

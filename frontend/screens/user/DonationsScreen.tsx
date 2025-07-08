@@ -3,11 +3,13 @@ import { View, StyleSheet, FlatList, Image, TouchableOpacity, Animated } from "r
 import { Text, Card, Button, ProgressBar, Searchbar } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+// import * as Font from 'expo-font';
+
 
 const donationData = [
   {
     id: "1",
-    image: "https://placekitten.com/300/200",
+    image: "https://cdn.britannica.com/59/173659-050-250F5491/Animal-Mammal-Goat-Ruminant-goat-Capra-aegagrus.jpg",
     title: "Rescue Injured Stray Cat",
     description: "Help us treat an injured stray cat needing urgent surgery.",
     ngo: "Paw Protectors NGO",
@@ -27,7 +29,7 @@ const donationData = [
   },
   {
     id: "3",
-    image: "https://placekitten.com/301/200",
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Cow_female_black_white.jpg/1200px-Cow_female_black_white.jpg",
     title: "Vaccinate Street Pups",
     description: "Support vaccination drive for stray puppies in the city.",
     ngo: "Safe Tails",
@@ -47,7 +49,7 @@ const donationData = [
   },
   {
     id: "5",
-    image: "https://placekitten.com/302/200",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQkACOybTvnYEEyAzWhSfDP5YYlQU2U0yDTJ01Rls-7waKrAyNUxFOjF0qv6fkB2S7PjdA&usqp=CAU",
     title: "Medical Aid for Injured Cow",
     description: "Urgent surgery and care for an injured stray cow.",
     ngo: "Animal Aid Unlimited",
@@ -58,6 +60,9 @@ const donationData = [
 ];
 
 export default function DonationsScreen() {
+  // const [fontsLoaded] = Font.useFonts({
+  //   'BastligaOne': require('../../assets/fonts/BastligaOne-Regular.ttf'),
+  // });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchActive, setSearchActive] = useState(false);
 
@@ -111,7 +116,7 @@ export default function DonationsScreen() {
         ) : (
           <>
             <View style={{ flex: 1 }} />
-            <Text style={styles.karunaTitle}>Karuna Nidhan</Text>
+            <Text style={styles.karunaTitle}>Donations</Text>
             <TouchableOpacity
               style={styles.searchIconContainer}
               onPress={() => setSearchActive(true)}
@@ -144,29 +149,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 14,
-    minHeight: 80,
+    minHeight: 50,
     borderBottomLeftRadius: 18,
     borderBottomRightRadius: 18,
-    elevation: 4,
+    elevation: 8,
     zIndex: 10,
   },
   karunaTitle: {
-    flex: 2,
+    fontWeight: "bold",
     textAlign: "center",
-    fontSize: 26,
-    color: "#8B4513",
-    fontFamily: "cursive",
-    letterSpacing: 1,
+    fontSize: 36,
+    color: "white",
+    fontFamily: 'cursive',
+    letterSpacing: 1
   },
   searchIconContainer: {
     flex: 1,
     alignItems: "flex-end",
+    paddingTop: 15,
     justifyContent: "center",
   },
   searchBarExpanded: {
-    flex: 1,
+    flex: 2,
     backgroundColor: "#FDF1DC",
     borderRadius: 10,
     borderWidth: 1,
@@ -174,11 +180,11 @@ const styles = StyleSheet.create({
     marginLeft: 0,
     marginRight: 0,
     elevation: 2,
-    height: 44,
+    height: 50,
   },
   listContent: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: 40,
   },
   card: {
     backgroundColor: "#FAF3E0",
