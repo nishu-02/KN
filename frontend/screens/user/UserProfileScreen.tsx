@@ -1,8 +1,19 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Avatar, Text, Button } from 'react-native-paper';
+import { useDispatch } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
+import { logoutUser } from '../../core/redux/slices/authSlice';
 
 export default function UserProfileScreen() {
+  const dispatch = useDispatch();
+  const navigation = useNavigation();
+
+  const handleLogout = async () => {
+    await dispatch(logoutUser());
+    navigation.replace('LoginScreen'); // 🔁 Adjust to your login screen name
+  };
+
   return (
     <View style={styles.container}>
       <Avatar.Image size={100} source={{ uri: 'https://via.placeholder.com/100' }} />
@@ -10,7 +21,9 @@ export default function UserProfileScreen() {
       <Text>Email: johndoe@example.com</Text>
       <Text>Phone: +91-9876543210</Text>
       <Button mode="contained" style={styles.button}>Edit Profile</Button>
-      <Button mode="outlined" style={styles.button}>Logout</Button>
+      <Button mode="outlined" style={styles.button} onPress={handleLogout}>
+        Logout
+      </Button>
     </View>
   );
 }

@@ -24,6 +24,9 @@ import NGODashboardScreen from "./screens/NGODashboardScreen";
 import UserDashboardScreen from "./screens/user/UploadRescueScreen";
 import { registerForPushNotificationsAsync } from "./PushTokenRegister";
 
+import CameraScreen from "./screens/user/camera/CameraScreen";
+import PostScreen from "./screens/user/camera/PostScreen";
+
 import UserBottomTabs from "./screens/navigation/UserBottomTabs";
 
 
@@ -151,6 +154,8 @@ function RootNavigator() {
               component={NGODashboardScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="Camera" component={CameraScreen} />
+            <Stack.Screen name="Post" component={PostScreen} />
           </>
         )}
       </Stack.Navigator>
