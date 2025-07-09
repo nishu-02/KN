@@ -5,6 +5,7 @@ from appwrite.input_file import InputFile
 from appwrite.exceptions import AppwriteException
 import os
 import json
+import time
 from typing import Dict, List, Optional
 
 class AppwriteNotificationService:
@@ -130,3 +131,32 @@ class AppwriteNotificationService:
         except AppwriteException as e:
             print(f"Failed to unsubscribe user from topic: {e.message}")
             return False
+    
+    def store_notification_history(
+        self,
+        title:str,
+        body:str,
+        data:Dict,
+        topic:str,
+        user_ids: List[str]
+    ):
+    """ Store notification history in the database """
+        from .models import NotificationHistory
+        import uuid
+
+        # If sent to specific users
+        if user_ids:
+            for user_id in user_ids:
+                NotificationHistory.objects.create(
+                    notification_id=str(uuid.uuid4()),
+                    recipient_id=user_id,
+                    title=title,
+                    body=body,
+                    data=data,
+                    topics=topic,
+                    is_read=False
+                )
+        else:
+            # For topic notifications, we here write the notification for all users
+            pass
+        
