@@ -136,26 +136,16 @@ export default function UserDashboard() {
         style={styles.headerEnhanced}
       >
         <View style={styles.headerRow}>
-          {/* Avatar/Icon */}
-          <View style={styles.headerAvatarContainer}>
-            <Avatar.Image
-              size={48}
-              source={{
-                uri: "https://randomuser.me/api/portraits/women/44.jpg",
-              }}
-              style={styles.avatar}
-            />
-          </View>
           {/* Greeting and Info */}
           <View style={styles.headerTextContainer}>
             <Text style={styles.greetingEnhanced}>
-              Good Morning, <Text style={{ fontWeight: "bold" }}>Anya</Text> 👋
+              Good Morning, <Text style={{ fontWeight: "bold", fontFamily: "monospace"}}>Anya</Text>
             </Text>
             <View style={styles.headerSubRow}>
               <Ionicons
                 name="location-outline"
                 size={16}
-                color="#8B4513"
+                color="#brown"
                 style={{ marginRight: 4 }}
               />
               <Text style={styles.cityText}>{location.city}</Text>
@@ -163,7 +153,7 @@ export default function UserDashboard() {
               <Ionicons
                 name="time-outline"
                 size={16}
-                color="#8B4513"
+                color="#brown"
                 style={{ marginRight: 4, marginLeft: 8 }}
               />
               <Text style={styles.timeText}>{location.time}</Text>
@@ -474,74 +464,74 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF8F0",
   },
   headerEnhanced: {
-  paddingTop: 44,
-  paddingBottom: 24,
-  paddingHorizontal: 18,
-  borderBottomLeftRadius: 28,
-  borderBottomRightRadius: 28,
-  elevation: 10,
-  shadowColor: "#8B4513",
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.18,
-  shadowRadius: 16,
-},
-headerRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-},
-headerAvatarContainer: {
-  marginRight: 12,
-},
-headerTextContainer: {
-  flex: 1,
-  justifyContent: "center",
-},
-greetingEnhanced: {
-  fontSize: 22,
-  color: "#fff",
-  fontFamily: "DancingScript-Regular", // or your preferred font
-  marginBottom: 2,
-},
-headerSubRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  marginTop: 2,
-},
-cityText: {
-  fontSize: 15,
-  color: "#4E3629",
-  fontWeight: "600",
-},
-dot: {
-  width: 6,
-  height: 6,
-  borderRadius: 3,
-  backgroundColor: "#8B4513",
-  marginHorizontal: 8,
-},
-timeText: {
-  fontSize: 15,
-  color: "#4E3629",
-  fontWeight: "600",
-},
-headerNotifContainer: {
-  marginLeft: 12,
-  position: "relative",
-  justifyContent: "center",
-  alignItems: "center",
-},
-notifBadge: {
-  position: "absolute",
-  top: -4,
-  right: -4,
-  backgroundColor: "#FF4444",
-  color: "#fff",
-  fontSize: 10,
-  paddingHorizontal: 4,
-  paddingVertical: 0,
-  zIndex: 2,
-},
+    paddingTop: 34,
+    paddingBottom: 24,
+    paddingHorizontal: 18,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    elevation: 10,
+    shadowColor: "#8B4513",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  // headerAvatarContainer: {
+  //   marginRight: 12,
+  // },
+  headerTextContainer: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  greetingEnhanced: {
+    fontSize: 30,
+    color: "#fff",
+    fontFamily: "cursive", // or your preferred font
+    marginBottom: 2,
+  },
+  headerSubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  cityText: {
+    fontSize: 15,
+    color: "white",
+    fontWeight: "600",
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#8B4513",
+    marginHorizontal: 8,
+  },
+  timeText: {
+    fontSize: 15,
+    color: "white",
+    fontWeight: "600",
+  },
+  headerNotifContainer: {
+    marginLeft: 12,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notifBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#FF4444",
+    color: "#fff",
+    fontSize: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    zIndex: 2,
+  },
   header: {
     paddingVertical: 30,
     paddingHorizontal: 16,

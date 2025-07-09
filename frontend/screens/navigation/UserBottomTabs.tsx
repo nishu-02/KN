@@ -143,11 +143,12 @@ export default function UserBottomTabs() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    // backgroundColor: "red"
+    backgroundColor: "transparent", // Fully transparent main container
   },
   contentContainer: {
     flex: 1,
-    paddingBottom: 100,
+    backgroundColor: "transparent", // Content shows through
+    // Remove bottom padding so content goes full height
   },
   bottomTabContainer: {
     position: "absolute",
