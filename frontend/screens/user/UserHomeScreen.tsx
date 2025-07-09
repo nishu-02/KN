@@ -43,7 +43,7 @@ const rescueCases = [
     vitals: {
       temperature: "103°F",
       heartRate: "120 bpm",
-      breathing: "Rapid"
+      breathing: "Rapid",
     },
     medicalHistory: "No vaccination records available",
     time: "2 mins ago",
@@ -71,7 +71,7 @@ const rescueCases = [
     vitals: {
       temperature: "Normal",
       heartRate: "Fast",
-      breathing: "Stable"
+      breathing: "Stable",
     },
     medicalHistory: "Wild bird, no prior medical records",
     time: "5 mins ago",
@@ -98,21 +98,31 @@ export default function UserDashboard() {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case "Critical": return "#FF4444";
-      case "High": return "#FF8800";
-      case "Moderate": return "#FFA500";
-      case "Low": return "#4CAF50";
-      default: return "#666";
+      case "Critical":
+        return "#FF4444";
+      case "High":
+        return "#FF8800";
+      case "Moderate":
+        return "#FFA500";
+      case "Low":
+        return "#4CAF50";
+      default:
+        return "#666";
     }
   };
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case "Critical": return "alert-circle";
-      case "High": return "alert";
-      case "Moderate": return "alert-outline";
-      case "Low": return "check-circle";
-      default: return "help-circle";
+      case "Critical":
+        return "alert-circle";
+      case "High":
+        return "alert";
+      case "Moderate":
+        return "alert-outline";
+      case "Low":
+        return "check-circle";
+      default:
+        return "help-circle";
     }
   };
 
@@ -120,37 +130,61 @@ export default function UserDashboard() {
     <ScrollView style={styles.container}>
       {/* Enhanced Header */}
       <LinearGradient
-        colors={["#CD853F" , "#D2B48C" , "#F5F5DC"  ]}
+        colors={["#8B4513", "#D2B48C", "#F5F5DC"]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerEnhanced}
       >
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.greeting}>Good Morning, Anya 👋</Text>
-            <Text style={styles.subInfo}>{location.time} • {location.city}</Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>12</Text>
-                <Text style={styles.statLabel}>Reports</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>8</Text>
-                <Text style={styles.statLabel}>Rescued</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>4</Text>
-                <Text style={styles.statLabel}>In Progress</Text>
-              </View>
+        <View style={styles.headerRow}>
+          {/* Avatar/Icon */}
+          <View style={styles.headerAvatarContainer}>
+            <Avatar.Image
+              size={48}
+              source={{
+                uri: "https://randomuser.me/api/portraits/women/44.jpg",
+              }}
+              style={styles.avatar}
+            />
+          </View>
+          {/* Greeting and Info */}
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.greetingEnhanced}>
+              Good Morning, <Text style={{ fontWeight: "bold" }}>Anya</Text> 👋
+            </Text>
+            <View style={styles.headerSubRow}>
+              <Ionicons
+                name="location-outline"
+                size={16}
+                color="#8B4513"
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.cityText}>{location.city}</Text>
+              <View style={styles.dot} />
+              <Ionicons
+                name="time-outline"
+                size={16}
+                color="#8B4513"
+                style={{ marginRight: 4, marginLeft: 8 }}
+              />
+              <Text style={styles.timeText}>{location.time}</Text>
             </View>
           </View>
+          {/* Notification Icon */}
+          <TouchableOpacity
+            style={styles.headerNotifContainer}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={28} color="#8B4513" />
+            <Badge style={styles.notifBadge}>2</Badge>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
       {/* Enhanced Radius Control */}
       <Surface style={styles.radiusSection} elevation={2}>
         <Text style={styles.sectionTitle}>
-          <Ionicons name="location-outline" size={20} color="#8B4513" /> Alert Radius
+          <Ionicons name="location-outline" size={20} color="#8B4513" /> Alert
+          Radius
         </Text>
         <Text style={styles.radiusDescription}>
           Set your preferred radius to receive animal rescue alerts
@@ -161,14 +195,16 @@ export default function UserDashboard() {
               key={option}
               style={[
                 styles.radiusOption,
-                radius === option && styles.radiusOptionSelected
+                radius === option && styles.radiusOptionSelected,
               ]}
               onPress={() => setRadius(option)}
             >
-              <Text style={[
-                styles.radiusOptionText,
-                radius === option && styles.radiusOptionTextSelected
-              ]}>
+              <Text
+                style={[
+                  styles.radiusOptionText,
+                  radius === option && styles.radiusOptionTextSelected,
+                ]}
+              >
                 {option}
               </Text>
             </TouchableOpacity>
@@ -186,17 +222,20 @@ export default function UserDashboard() {
       <Surface style={styles.mapSection} elevation={4}>
         <View style={styles.mapHeader}>
           <Text style={styles.sectionTitle}>
-            <Ionicons name="map-outline" size={20} color="#8B4513" /> Live Rescue Feed
+            <Ionicons name="map-outline" size={20} color="#8B4513" /> Live
+            Rescue Feed
           </Text>
-          <Chip icon="refresh" onPress={() => {}}>Refresh</Chip>
+          <Chip icon="refresh" onPress={() => {}}>
+            Refresh
+          </Chip>
         </View>
         <MapView
           style={styles.map}
           initialRegion={{
-            latitude: 37.78825,
-            longitude: -122.4324,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+            latitude: 28.6139, // Latitude of central Delhi (near India Gate)
+            longitude: 77.209, // Longitude of central Delhi
+            latitudeDelta: 0.1, // Zoom level (adjustable)
+            longitudeDelta: 0.1,
           }}
         >
           {rescueCases.map((rescue) => (
@@ -213,24 +252,33 @@ export default function UserDashboard() {
       {/* Enhanced Rescue Case Cards */}
       <View style={styles.casesSection}>
         <Text style={styles.sectionTitle}>
-          <Ionicons name="heart-outline" size={20} color="#8B4513" /> Nearby Rescue Cases
+          <Ionicons name="heart-outline" size={20} color="#8B4513" /> Nearby
+          Rescue Cases
         </Text>
         {rescueCases.map((rescue) => (
           <Card style={styles.enhancedCard} key={rescue.id} elevation={4}>
             {/* Card Header */}
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
-                <Image source={{ uri: rescue.image }} style={styles.animalImage} />
+                <Image
+                  source={{ uri: rescue.image }}
+                  style={styles.animalImage}
+                />
                 <View style={styles.cardHeaderText}>
                   <Text style={styles.cardTitle}>{rescue.title}</Text>
-                  <Text style={styles.cardSubtitle}>{rescue.species} • {rescue.breed}</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {rescue.species} • {rescue.breed}
+                  </Text>
                 </View>
               </View>
               <View style={styles.cardHeaderRight}>
                 <Chip
                   icon={getSeverityIcon(rescue.severity)}
-                  style={[styles.severityChip, { backgroundColor: getSeverityColor(rescue.severity) }]}
-                  textStyle={{ color: 'white', fontSize: 12 }}
+                  style={[
+                    styles.severityChip,
+                    { backgroundColor: getSeverityColor(rescue.severity) },
+                  ]}
+                  textStyle={{ color: "white", fontSize: 12 }}
                 >
                   {rescue.severity}
                 </Chip>
@@ -267,12 +315,16 @@ export default function UserDashboard() {
             <View style={styles.medicalInfo}>
               <Text style={styles.infoSectionTitle}>Medical Status</Text>
               <Text style={styles.injurySummary}>{rescue.injurySummary}</Text>
-              
+
               <View style={styles.symptomsContainer}>
                 <Text style={styles.symptomsTitle}>Symptoms:</Text>
                 <View style={styles.symptomsChips}>
                   {rescue.symptoms.map((symptom, index) => (
-                    <Chip key={index} style={styles.symptomChip} textStyle={{ fontSize: 12 }}>
+                    <Chip
+                      key={index}
+                      style={styles.symptomChip}
+                      textStyle={{ fontSize: 12 }}
+                    >
                       {symptom}
                     </Chip>
                   ))}
@@ -284,15 +336,21 @@ export default function UserDashboard() {
                 <View style={styles.vitalsGrid}>
                   <View style={styles.vitalItem}>
                     <Text style={styles.vitalLabel}>Temp:</Text>
-                    <Text style={styles.vitalValue}>{rescue.vitals.temperature}</Text>
+                    <Text style={styles.vitalValue}>
+                      {rescue.vitals.temperature}
+                    </Text>
                   </View>
                   <View style={styles.vitalItem}>
                     <Text style={styles.vitalLabel}>Heart:</Text>
-                    <Text style={styles.vitalValue}>{rescue.vitals.heartRate}</Text>
+                    <Text style={styles.vitalValue}>
+                      {rescue.vitals.heartRate}
+                    </Text>
                   </View>
                   <View style={styles.vitalItem}>
                     <Text style={styles.vitalLabel}>Breathing:</Text>
-                    <Text style={styles.vitalValue}>{rescue.vitals.breathing}</Text>
+                    <Text style={styles.vitalValue}>
+                      {rescue.vitals.breathing}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -301,8 +359,8 @@ export default function UserDashboard() {
             {/* Rescue Progress */}
             <View style={styles.progressSection}>
               <Text style={styles.progressTitle}>Rescue Progress</Text>
-              <ProgressBar 
-                progress={rescue.rescueProgress} 
+              <ProgressBar
+                progress={rescue.rescueProgress}
                 color={getSeverityColor(rescue.severity)}
                 style={styles.progressBar}
               />
@@ -319,34 +377,38 @@ export default function UserDashboard() {
               </View>
               <View style={styles.teamItem}>
                 <Ionicons name="person-outline" size={16} color="#666" />
-                <Text style={styles.teamText}>Volunteer: {rescue.volunteer}</Text>
+                <Text style={styles.teamText}>
+                  Volunteer: {rescue.volunteer}
+                </Text>
               </View>
               <View style={styles.teamItem}>
                 <Ionicons name="card-outline" size={16} color="#666" />
-                <Text style={styles.teamText}>Est. Cost: {rescue.estimatedCost}</Text>
+                <Text style={styles.teamText}>
+                  Est. Cost: {rescue.estimatedCost}
+                </Text>
               </View>
             </View>
 
             {/* Action Buttons */}
             <View style={styles.cardActions}>
-              <Button 
-                mode="contained" 
+              <Button
+                mode="contained"
                 icon="check-circle-outline"
                 style={styles.actionButton}
                 buttonColor="#4CAF50"
               >
                 Mark Helped
               </Button>
-              <Button 
-                mode="outlined" 
+              <Button
+                mode="outlined"
                 icon="alert-circle-outline"
                 style={styles.actionButton}
                 textColor="#FF8800"
               >
                 Report Again
               </Button>
-              <Button 
-                mode="text" 
+              <Button
+                mode="text"
                 icon="share-outline"
                 style={styles.actionButton}
               >
@@ -360,14 +422,17 @@ export default function UserDashboard() {
       {/* Enhanced Status Updates Section */}
       <Surface style={styles.statusSection} elevation={2}>
         <Text style={styles.sectionTitle}>
-          <Ionicons name="list-outline" size={20} color="#8B4513" /> Your Reports
+          <Ionicons name="list-outline" size={20} color="#8B4513" /> Your
+          Reports
         </Text>
         <Card style={styles.statusCard}>
           <Card.Content>
             <List.Item
               title="Injured Cow Near Red Fort"
               description="NGO: Animal Aid • Status: In Progress"
-              left={(props) => <List.Icon {...props} icon="alert" color="#FF8800" />}
+              left={(props) => (
+                <List.Icon {...props} icon="alert" color="#FF8800" />
+              )}
               right={(props) => (
                 <View style={styles.statusRight}>
                   <Badge style={styles.statusBadge}>Active</Badge>
@@ -379,10 +444,16 @@ export default function UserDashboard() {
             <List.Item
               title="Stray Pup with Broken Leg"
               description="NGO: Awaiting Response • Status: Reported"
-              left={(props) => <List.Icon {...props} icon="paw" color="#8B4513" />}
+              left={(props) => (
+                <List.Icon {...props} icon="paw" color="#8B4513" />
+              )}
               right={(props) => (
                 <View style={styles.statusRight}>
-                  <Badge style={[styles.statusBadge, { backgroundColor: '#FFA500' }]}>Pending</Badge>
+                  <Badge
+                    style={[styles.statusBadge, { backgroundColor: "#FFA500" }]}
+                  >
+                    Pending
+                  </Badge>
                   <IconButton {...props} icon="chevron-right" />
                 </View>
               )}
@@ -402,6 +473,75 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF8F0",
   },
+  headerEnhanced: {
+  paddingTop: 44,
+  paddingBottom: 24,
+  paddingHorizontal: 18,
+  borderBottomLeftRadius: 28,
+  borderBottomRightRadius: 28,
+  elevation: 10,
+  shadowColor: "#8B4513",
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.18,
+  shadowRadius: 16,
+},
+headerRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+},
+headerAvatarContainer: {
+  marginRight: 12,
+},
+headerTextContainer: {
+  flex: 1,
+  justifyContent: "center",
+},
+greetingEnhanced: {
+  fontSize: 22,
+  color: "#fff",
+  fontFamily: "DancingScript-Regular", // or your preferred font
+  marginBottom: 2,
+},
+headerSubRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginTop: 2,
+},
+cityText: {
+  fontSize: 15,
+  color: "#4E3629",
+  fontWeight: "600",
+},
+dot: {
+  width: 6,
+  height: 6,
+  borderRadius: 3,
+  backgroundColor: "#8B4513",
+  marginHorizontal: 8,
+},
+timeText: {
+  fontSize: 15,
+  color: "#4E3629",
+  fontWeight: "600",
+},
+headerNotifContainer: {
+  marginLeft: 12,
+  position: "relative",
+  justifyContent: "center",
+  alignItems: "center",
+},
+notifBadge: {
+  position: "absolute",
+  top: -4,
+  right: -4,
+  backgroundColor: "#FF4444",
+  color: "#fff",
+  fontSize: 10,
+  paddingHorizontal: 4,
+  paddingVertical: 0,
+  zIndex: 2,
+},
   header: {
     paddingVertical: 30,
     paddingHorizontal: 16,
@@ -410,9 +550,9 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   greeting: {
     fontSize: 28,
@@ -426,32 +566,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 16,
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statNumber: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   statLabel: {
     fontSize: 12,
-    color: '#f0e2c8',
+    color: "#f0e2c8",
   },
   avatar: {
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: "#fff",
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 12,
     color: "#5C4033",
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   radiusSection: {
     margin: 16,
@@ -465,8 +605,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   radiusOptionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     marginBottom: 16,
   },
@@ -485,14 +625,14 @@ const styles = StyleSheet.create({
   radiusOptionText: {
     color: "#666",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   radiusOptionTextSelected: {
     color: "#fff",
   },
   radiusInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   radiusInfoText: {
@@ -503,13 +643,13 @@ const styles = StyleSheet.create({
   mapSection: {
     margin: 16,
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     backgroundColor: "#FFFFFF",
   },
   mapHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     paddingBottom: 8,
   },
@@ -524,17 +664,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     marginBottom: 16,
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     padding: 16,
   },
   cardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   animalImage: {
@@ -548,7 +688,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: "#333",
   },
   cardSubtitle: {
@@ -557,7 +697,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cardHeaderRight: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   severityChip: {
     marginBottom: 4,
@@ -575,18 +715,18 @@ const styles = StyleSheet.create({
   },
   infoSectionTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: "#8B4513",
     marginBottom: 8,
   },
   infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   infoItem: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: "45%",
   },
   infoLabel: {
     fontSize: 12,
@@ -594,7 +734,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: "#333",
   },
   medicalInfo: {
@@ -616,8 +756,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   symptomsChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 4,
   },
   symptomChip: {
@@ -632,7 +772,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   vitalsGrid: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 16,
   },
   vitalItem: {
@@ -644,7 +784,7 @@ const styles = StyleSheet.create({
   },
   vitalValue: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: "#333",
   },
   progressSection: {
@@ -664,7 +804,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 12,
     color: "#666",
-    textAlign: 'right',
+    textAlign: "right",
   },
   rescueTeamInfo: {
     padding: 16,
@@ -672,8 +812,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   teamItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   teamText: {
@@ -681,7 +821,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   cardActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     padding: 16,
     paddingTop: 8,
@@ -700,8 +840,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   statusBadge: {
     backgroundColor: "#4CAF50",
