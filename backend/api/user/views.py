@@ -4,10 +4,11 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
 from reports.models import InjuryReport
-from user.models import UserProfile
-from ngo.models import NGO, VolunteerApplication
+from user.models import UserProfile, VolunteerApplication
+from ngo.models import NGO
 from reports.serializers import InjuryReportSerializer
 from user.serializers import UserProfileSerializer
+from notifications.notification_triggers import notification_triggers
 
 class UserReportViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -86,6 +87,9 @@ class VolunteerApplicationViewSet(viewsets.ViewSet):
                 return Response({
                     'error': "You have already applied to this NGO"
                 }, status=status.HTTP_409_CONFLICT)
+            
+            # Notify the NGO about the new volunteer application
+            notification_triggers.notify_volunteer_application_submitted(application)
             
             return Response({
                 "message": "Application submitted successfully",

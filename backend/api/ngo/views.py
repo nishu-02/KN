@@ -10,9 +10,9 @@ from .models import NGO
 from .serializers import NGORegisterSerializer
 from reports.models import InjuryReport
 from reports.serializers import InjuryReportSerializer
-from volunteers.models import VolunteerApplication
-from volunteers.serializers import VolunteerApplicationSerializer
+from user.models import VolunteerApplication
 from notifications.utils import send_and_log_notification, update_notification_status
+from notifications.notification_triggers import notification_triggers
 
 
 class NGOSearchPagination(PageNumberPagination):
@@ -121,15 +121,8 @@ class NGOViewSet(viewsets.ModelViewSet):
             # Update notification status
             update_notification_status(report_id, request.user_id, 'accepted')
             
-            # Notify the user
-            send_and_log_notification(
-                recipient_id=report.user_id,
-                recipient_type="user",
-                title="Report Accepted",
-                body="Your report has been accepted by an NGO and is now in progress.",
-                data={"report_id": str(report.report_id), "status": "in_progress"},
-                report=report
-            )
+            # Notify both NGO and user about report assignment
+            notification_triggers.notify_report_assigned_to_ngo(report, ngo)
 
             return Response({
                 "message": "Report accepted successfully",
@@ -299,8 +292,12 @@ class NGOViewSet(viewsets.ModelViewSet):
                     "error": "Application does not belong to this NGO"
                 }, status=status.HTTP_401_UNAUTHORIZED)
             
+            old_status = application.status
             application.status = new_status
             application.save()
+
+            # Notify the user about application status change
+            notification_triggers.notify_volunteer_application_status_update(application, old_status)
 
             return Response({
                 "message": f"Application marked as {new_status}"
@@ -346,18 +343,12 @@ class NGOViewSet(viewsets.ModelViewSet):
                     "error": "Report not assigned to this NGO"
                 }, status=status.HTTP_401_UNAUTHORIZED)
             
+            old_status = report.status
             report.status = new_status
             report.save()
 
-            # Send notification to user
-            send_and_log_notification(
-                recipient_id=report.user_id,
-                recipient_type="user",
-                title="Report Status Updated",
-                body=f"Your report status has been updated to {new_status}",
-                data={"report_id": str(report.report_id), "status": new_status},
-                report=report
-            )
+            # Send notification to user about status change
+            notification_triggers.notify_injury_report_status_change(report, old_status, new_status)
 
             return Response({
                 "message": f"Report status updated to {new_status}"

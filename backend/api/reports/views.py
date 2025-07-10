@@ -19,6 +19,7 @@ from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports, get_nearby_volunteers
 from notifications.utils import send_and_log_notification
+from notifications.notification_triggers import notification_triggers
 from .notification import notify_user
 
 
@@ -107,29 +108,8 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                 # Create Appwrite report
                 create_appwrite_report(report)
 
-                # Send notifications to nearby NGOs
-                nearby_ngos = get_nearby_ngos(lat, lon, radius_km=5)
-                for ngo in nearby_ngos:
-                    send_and_log_notification(
-                        recipient_id=ngo.ngo_id,
-                        recipient_type="ngo",
-                        title="New Report Assigned",
-                        body="A new injury report has been assigned to you!",
-                        data={"report_id": str(report.report_id)},
-                        report=report
-                    )
-
-                # Send notifications to nearby volunteers
-                nearby_volunteers = get_nearby_volunteers(lat, lon, radius_km=5)
-                for volunteer in nearby_volunteers:
-                    send_and_log_notification(
-                        recipient_id=volunteer.user_id,
-                        recipient_type="volunteer",
-                        title="New Report in Your Area!",
-                        body="A new animal injury report needs your help!",
-                        data={"report_id": str(report.report_id)},
-                        report=report
-                    )
+                # Send comprehensive notifications for new injury report
+                notification_triggers.notify_new_injury_report(report)
 
             # Serialize and return response
             serializer = self.get_serializer(report)
