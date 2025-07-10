@@ -1,4 +1,4 @@
-from appwrite.client import client
+from appwrite.client import Client
 from appwrite.services.messaging import Messaging
 from appwrite.services.databases import Databases
 from appwrite.input_file import InputFile
@@ -18,10 +18,10 @@ class AppwriteNotificationService:
         self.messaging = Messaging(self.client)
         self.databases = Databases(self.client)
 
-        #Topics Ids for differnt topics
+        #Topics Ids for different topics
         self.TOPICS ={
             'injury_reports': 'injury_reports',
-            'voulunteer_updates': 'voulunteer_updates'
+            'volunteer_updates': 'volunteer_updates',
             'emergency_alerts': 'emergency-alerts',
             'general': 'general-notifications'
         }
@@ -41,20 +41,20 @@ class AppwriteNotificationService:
 
     def send_push_notifications(
         self,
-        topic:str,
+        topic: str,
         title: str,
         body: str,
         data: Dict[str, str] = None,
         user_ids: Optional[List[str]] = None
     ):
-    """ send push notification to topic or specfic users """
-    try:
-        message_data={
-            'title': title,
-            'body': body,
-            'data': data,
-            'action': 
-        }
+        """ send push notification to topic or specific users """
+        try:
+            message_data = {
+                'title': title,
+                'body': body,
+                'data': data or {},
+                'action': 'notification'
+            }
 
         if user_ids:
             # send to specific users
@@ -81,7 +81,7 @@ class AppwriteNotificationService:
             )           
 
             # also store in the database for history
-            self.store.notification_history(
+            self.store_notification_history(
                 title=title,
                 body=body,
                 data=data,
@@ -96,18 +96,18 @@ class AppwriteNotificationService:
     
     def subscribe_user_to_topic(
         self,
-        user_id:str,
-        topics:str,
-        push_token:str
+        user_id: str,
+        topic: str,
+        push_token: str
     ):
-    """ Subscribe user to topics """
+        """ Subscribe user to topics """
         try:
             topic_id = self.TOPICS.get(topic, self.TOPICS['general'])
 
             self.messaging.create_subscriber(
                 topic_id=topic_id,
                 subscriber_id=user_id,
-                taget_id=push_token
+                target_id=push_token
             )
             return True
         except AppwriteException as e:
@@ -116,12 +116,12 @@ class AppwriteNotificationService:
 
     def unsubscribe_user_from_topic(
         self,
-        user_id:str,
-        topic:str
+        user_id: str,
+        topic: str
     ):
-    """ Unsubscribe user from the topic """
+        """ Unsubscribe user from the topic """
         try:
-            topic_id = self.TOPCIS.get(topic, self.TOPICS['general'])
+            topic_id = self.TOPICS.get(topic, self.TOPICS['general'])
 
             self.messaging.delete_subscriber(
                 topic_id=topic_id,
@@ -134,13 +134,13 @@ class AppwriteNotificationService:
     
     def store_notification_history(
         self,
-        title:str,
-        body:str,
-        data:Dict,
-        topic:str,
-        user_ids: List[str]
+        title: str,
+        body: str,
+        data: Dict,
+        topic: str,
+        user_ids: List[str] = None
     ):
-    """ Store notification history in the database """
+        """ Store notification history in the database """
         from .models import NotificationHistory
         import uuid
 
@@ -150,13 +150,15 @@ class AppwriteNotificationService:
                 NotificationHistory.objects.create(
                     notification_id=str(uuid.uuid4()),
                     recipient_id=user_id,
+                    recipient_type="user",
                     title=title,
                     body=body,
                     data=data,
-                    topics=topic,
+                    status='sent',
                     is_read=False
                 )
         else:
-            # For topic notifications, we here write the notification for all users
+            # For topic notifications, we store the notification for all users
+            # This would require additional logic to get all users subscribed to the topic
             pass
         
