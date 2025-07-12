@@ -2,7 +2,7 @@ from appwrite.client import Client
 from appwrite.services.messaging import Messaging
 from appwrite.services.databases import Databases
 from appwrite.input_file import InputFile
-from appwrite.exceptions import AppwriteException
+from appwrite.exception import AppwriteException
 import os
 import json
 import time
@@ -56,43 +56,43 @@ class AppwriteNotificationService:
                 'action': 'notification'
             }
 
-        if user_ids:
-            # send to specific users
-            for user_id in user_ids:
-                try:
-                    self.messaging.create_push(
-                        message_id=f"msd_{user_id}_{int(time.time())}",
-                        title=title,
-                        body=body,
-                        data=message_data,
-                        user_id=[user_id]
-                    )
-                except AppwriteException as e:
-                    print(f"Failed to send push notification to user {user_id}: {e.message}")
-        else:
-            #Sent to topic
-            topic_id = self.TOPICS.get(topic, self.TOPICS['general'])
-            self.messaging.create_push(
-                message_id=f"msd_{topic_id}_{int(time.time())}",
-                title=title,
-                body=body,
-                data=message_data,
-                topic_id=topic_id
-            )           
+            if user_ids:
+                # send to specific users
+                for user_id in user_ids:
+                    try:
+                        self.messaging.create_push(
+                            message_id=f"msd_{user_id}_{int(time.time())}",
+                            title=title,
+                            body=body,
+                            data=message_data,
+                            user_id=[user_id]
+                        )
+                    except AppwriteException as e:
+                        print(f"Failed to send push notification to user {user_id}: {e.message}")
+            else:
+                #Sent to topic
+                topic_id = self.TOPICS.get(topic, self.TOPICS['general'])
+                self.messaging.create_push(
+                    message_id=f"msd_{topic_id}_{int(time.time())}",
+                    title=title,
+                    body=body,
+                    data=message_data,
+                    topic_id=topic_id
+                )           
 
-            # also store in the database for history
-            self.store_notification_history(
-                title=title,
-                body=body,
-                data=data,
-                topic=topic,
-                user_ids=user_ids
-            )
+                # also store in the database for history
+                self.store_notification_history(
+                    title=title,
+                    body=body,
+                    data=data,
+                    topic=topic,
+                    user_ids=user_ids
+                )
 
             return True
-    except AppwriteException as e:
-        print(f"Failed to send push notification: {e.message}")
-        return False
+        except AppwriteException as e:
+            print(f"Failed to send push notification: {e.message}")
+            return False
     
     def subscribe_user_to_topic(
         self,

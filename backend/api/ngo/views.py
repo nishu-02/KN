@@ -11,7 +11,7 @@ from .serializers import NGORegisterSerializer
 from reports.models import InjuryReport
 from reports.serializers import InjuryReportSerializer
 from user.models import VolunteerApplication
-from notifications.utils import send_and_log_notification, update_notification_status
+from notifications.utils import send_and_log_notification
 from notifications.notification_triggers import notification_triggers
 
 
@@ -118,9 +118,6 @@ class NGOViewSet(viewsets.ModelViewSet):
                 report.status = 'in_progress'
                 report.save()
 
-            # Update notification status
-            update_notification_status(report_id, request.user_id, 'accepted')
-            
             # Notify both NGO and user about report assignment
             notification_triggers.notify_report_assigned_to_ngo(report, ngo)
 
