@@ -1,4 +1,3 @@
-// UserDashboard.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -16,19 +15,76 @@ import {
   Divider,
   List,
   IconButton,
-  Avatar,
-  TextInput,
   Surface,
   Badge,
   ProgressBar,
 } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 
 const screenWidth = Dimensions.get("window").width;
 
-const rescueCases = [
+// Constants for styling
+const COLORS = {
+  primary: "#8B4513",
+  secondary: "#D2B48C",
+  background: "#FFF8F0",
+  card: "#FFFFFF",
+  text: "#333",
+  subtext: "#666",
+  critical: "#FF4444",
+  high: "#FF8800",
+  moderate: "#FFA500",
+  low: "#4CAF50",
+  accent: "#F5F5DC",
+};
+
+const SIZES = {
+  radius: 16,
+  padding: 16,
+  margin: 16,
+  fontLarge: 20,
+  fontMedium: 16,
+  fontSmall: 14,
+  fontTiny: 12,
+};
+
+// Interfaces
+interface RescueCase {
+  id: string;
+  title: string;
+  species: string;
+  breed: string;
+  age: string;
+  gender: string;
+  weight: string;
+  severity: string;
+  injurySummary: string;
+  symptoms: string[];
+  vitals: { temperature: string; heartRate: string; breathing: string };
+  medicalHistory: string;
+  time: string;
+  ngo: string;
+  volunteer: string;
+  estimatedCost: string;
+  location: { latitude: number; longitude: number };
+  image: string;
+  rescueProgress: number;
+}
+
+interface Location {
+  city: string;
+  time: string;
+}
+
+// Data
+const rescueCases: RescueCase[] = [
   {
     id: "r1",
     title: "Injured Street Dog",
@@ -40,20 +96,13 @@ const rescueCases = [
     severity: "Critical",
     injurySummary: "Deep laceration on right hind leg, signs of infection",
     symptoms: ["Limping", "Bleeding", "Fever", "Lethargy"],
-    vitals: {
-      temperature: "103°F",
-      heartRate: "120 bpm",
-      breathing: "Rapid",
-    },
+    vitals: { temperature: "103°F", heartRate: "120 bpm", breathing: "Rapid" },
     medicalHistory: "No vaccination records available",
     time: "2 mins ago",
     ngo: "Awaiting Rescue",
     volunteer: "Dr. Sarah Ahmed",
     estimatedCost: "₹2,500 - ₹5,000",
-    location: {
-      latitude: 37.78825,
-      longitude: -122.4324,
-    },
+    location: { latitude: 37.78825, longitude: -122.4324 },
     image: "https://via.placeholder.com/100x100/8B4513/FFFFFF?text=DOG",
     rescueProgress: 0.2,
   },
@@ -68,20 +117,13 @@ const rescueCases = [
     severity: "Moderate",
     injurySummary: "Suspected wing fracture, possible collision with window",
     symptoms: ["Wing drooping", "Unable to fly", "Stress"],
-    vitals: {
-      temperature: "Normal",
-      heartRate: "Fast",
-      breathing: "Stable",
-    },
+    vitals: { temperature: "Normal", heartRate: "Fast", breathing: "Stable" },
     medicalHistory: "Wild bird, no prior medical records",
     time: "5 mins ago",
     ngo: "Hope for Paws",
     volunteer: "Rahul Sharma",
     estimatedCost: "₹800 - ₹1,500",
-    location: {
-      latitude: 37.78925,
-      longitude: -122.4344,
-    },
+    location: { latitude: 37.78925, longitude: -122.4344 },
     image: "https://via.placeholder.com/100x100/8B4513/FFFFFF?text=BIRD",
     rescueProgress: 0.6,
   },
@@ -89,142 +131,315 @@ const rescueCases = [
 
 const radiusOptions = ["1 km", "2 km", "5 km", "10 km", "15 km", "25 km"];
 
+// Utility Functions
+const getSeverityStyles = (severity: string) => ({
+  color:
+    {
+      Critical: COLORS.critical,
+      High: COLORS.high,
+      Moderate: COLORS.moderate,
+      Low: COLORS.low,
+    }[severity] || COLORS.subtext,
+  icon:
+    {
+      Critical: "alert-circle",
+      High: "alert",
+      Moderate: "alert-outline",
+      Low: "check-circle",
+    }[severity] || "help-circle",
+});
+
+// Reusable Components
+const AnimatedTouchable: React.FC<{
+  children: React.ReactNode;
+  onPress: () => void;
+}> = ({ children, onPress }) => {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: withSpring(scale.value) }],
+  }));
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={() => (scale.value = 0.95)}
+      onPressOut={() => (scale.value = 1)}
+      activeOpacity={0.8}
+    >
+      <Animated.View style={animatedStyle}>{children}</Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+const SectionHeader: React.FC<{
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = ({ title, icon }) => (
+  <View style={styles.sectionHeader}>
+    <Ionicons
+      name={icon as keyof typeof Ionicons.glyphMap}
+      size={SIZES.fontLarge}
+      color={COLORS.primary}
+      style={styles.sectionIcon}
+    />
+    <Text style={styles.sectionTitle}>{title}</Text>
+  </View>
+);
+
+const RescueCaseCard: React.FC<{ rescue: RescueCase }> = ({ rescue }) => {
+  const { color, icon } = getSeverityStyles(rescue.severity);
+
+  return (
+    <Card style={styles.card} elevation={3}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <Image source={{ uri: rescue.image }} style={styles.animalImage} />
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>{rescue.title}</Text>
+            <Text
+              style={styles.cardSubtitle}
+            >{`${rescue.species} • ${rescue.breed}`}</Text>
+          </View>
+        </View>
+        <View style={styles.cardHeaderRight}>
+          <Chip
+            icon={icon}
+            style={[styles.severityChip, { backgroundColor: color }]}
+            textStyle={styles.chipText}
+          >
+            {rescue.severity}
+          </Chip>
+          <Text style={styles.timeStamp}>{rescue.time}</Text>
+        </View>
+      </View>
+
+      <Divider style={styles.cardDivider} />
+
+      <View style={styles.animalInfo}>
+        <Text style={styles.infoSectionTitle}>Animal Information</Text>
+        <View style={styles.infoGrid}>
+          {[
+            { label: "Age", value: rescue.age },
+            { label: "Gender", value: rescue.gender },
+            { label: "Weight", value: rescue.weight },
+            { label: "Species", value: rescue.species },
+          ].map(({ label, value }, index) => (
+            <View key={index} style={styles.infoItem}>
+              <Text style={styles.infoLabel}>{`${label}:`}</Text>
+              <Text style={styles.infoValue}>{value}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.medicalInfo}>
+        <Text style={styles.infoSectionTitle}>Medical Status</Text>
+        <Text style={styles.injurySummary}>{rescue.injurySummary}</Text>
+        <View style={styles.symptomsContainer}>
+          <Text style={styles.symptomsTitle}>Symptoms:</Text>
+          <View style={styles.symptomsChips}>
+            {rescue.symptoms.map((symptom, index) => (
+              <Chip
+                key={index}
+                style={styles.symptomChip}
+                textStyle={styles.chipText}
+              >
+                {symptom}
+              </Chip>
+            ))}
+          </View>
+        </View>
+        <View style={styles.vitalsContainer}>
+          <Text style={styles.vitalsTitle}>Vital Signs:</Text>
+          <View style={styles.vitalsGrid}>
+            {[
+              { label: "Temp", value: rescue.vitals.temperature },
+              { label: "Heart", value: rescue.vitals.heartRate },
+              { label: "Breathing", value: rescue.vitals.breathing },
+            ].map(({ label, value }, index) => (
+              <View key={index} style={styles.vitalItem}>
+                <Text style={styles.vitalLabel}>{`${label}:`}</Text>
+                <Text style={styles.vitalValue}>{value}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.progressSection}>
+        <Text style={styles.progressTitle}>Rescue Progress</Text>
+        <ProgressBar
+          progress={rescue.rescueProgress}
+          color={color}
+          style={styles.progressBar}
+        />
+        <Text style={styles.progressText}>{`${Math.round(
+          rescue.rescueProgress * 100
+        )}% Complete`}</Text>
+      </View>
+
+      <View style={styles.rescueTeamInfo}>
+        {[
+          { icon: "business-outline", text: `NGO: ${rescue.ngo}` },
+          { icon: "person-outline", text: `Volunteer: ${rescue.volunteer}` },
+          { icon: "card-outline", text: `Est. Cost: ${rescue.estimatedCost}` },
+        ].map(({ icon, text }, index) => (
+          <View key={index} style={styles.teamItem}>
+            <Ionicons
+              name={icon as keyof typeof Ionicons.glyphMap}
+              size={SIZES.fontSmall}
+              color={COLORS.subtext}
+            />
+            <Text style={styles.teamText}>{text}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.cardActions}>
+        {[
+          {
+            icon: "check-circle-outline",
+            text: "Mark Helped",
+            mode: "contained" as "contained",
+            color: COLORS.low,
+          },
+          {
+            icon: "alert-circle-outline",
+            text: "Report Again",
+            mode: "outlined" as "outlined",
+            textColor: COLORS.high,
+          },
+          {
+            icon: "share-outline",
+            text: "Share",
+            mode: "text" as "text",
+            textColor: COLORS.primary,
+          },
+        ].map(({ icon, text, mode, color, textColor }, index) => (
+          <Button
+            key={index}
+            mode={mode}
+            icon={icon}
+            style={styles.actionButton}
+            buttonColor={color}
+            textColor={textColor || COLORS.text}
+          >
+            {text}
+          </Button>
+        ))}
+      </View>
+    </Card>
+  );
+};
+
 export default function UserDashboard() {
   const [radius, setRadius] = useState("5 km");
-  const [location, setLocation] = useState({
+  const [location, setLocation] = useState<Location>({
     city: "New Delhi",
     time: "8:35 AM",
   });
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "Critical":
-        return "#FF4444";
-      case "High":
-        return "#FF8800";
-      case "Moderate":
-        return "#FFA500";
-      case "Low":
-        return "#4CAF50";
-      default:
-        return "#666";
-    }
-  };
-
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case "Critical":
-        return "alert-circle";
-      case "High":
-        return "alert";
-      case "Moderate":
-        return "alert-outline";
-      case "Low":
-        return "check-circle";
-      default:
-        return "help-circle";
-    }
-  };
-
   return (
-    <ScrollView style={styles.container}>
-      {/* Enhanced Header */}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: SIZES.margin }}
+    >
+      {/* Header */}
       <LinearGradient
-        colors={["#8B4513", "#D2B48C", "#F5F5DC"]}
+        colors={[COLORS.primary, COLORS.secondary, COLORS.accent]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.headerEnhanced}
+        style={styles.header}
       >
         <View style={styles.headerRow}>
-          {/* Greeting and Info */}
           <View style={styles.headerTextContainer}>
-            <Text style={styles.greetingEnhanced}>
-              Good Morning, <Text style={{ fontWeight: "bold", fontFamily: "monospace"}}>Anya</Text>
+            <Text style={styles.greeting}>
+              Good Morning, <Text style={styles.boldText}>Anya</Text>
             </Text>
             <View style={styles.headerSubRow}>
               <Ionicons
                 name="location-outline"
-                size={16}
-                color="#brown"
-                style={{ marginRight: 4 }}
+                size={SIZES.fontSmall}
+                color={COLORS.accent}
+                style={styles.iconSpacing}
               />
-              <Text style={styles.cityText}>{location.city}</Text>
+              <Text style={styles.subText}>{location.city}</Text>
               <View style={styles.dot} />
               <Ionicons
                 name="time-outline"
-                size={16}
-                color="#brown"
-                style={{ marginRight: 4, marginLeft: 8 }}
+                size={SIZES.fontSmall}
+                color={COLORS.accent}
+                style={styles.iconSpacing}
               />
-              <Text style={styles.timeText}>{location.time}</Text>
+              <Text style={styles.subText}>{location.time}</Text>
             </View>
           </View>
-          {/* Notification Icon */}
-          <TouchableOpacity
-            style={styles.headerNotifContainer}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="notifications-outline" size={28} color="#8B4513" />
-            <Badge style={styles.notifBadge}>2</Badge>
-          </TouchableOpacity>
+          <AnimatedTouchable onPress={() => {}}>
+            <View style={styles.headerNotifContainer}>
+              <Ionicons
+                name="notifications-outline"
+                size={28}
+                color={COLORS.primary}
+              />
+              <Badge style={styles.notifBadge}>2</Badge>
+            </View>
+          </AnimatedTouchable>
         </View>
       </LinearGradient>
 
-      {/* Enhanced Radius Control */}
+      {/* Radius Control */}
       <Surface style={styles.radiusSection} elevation={2}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="location-outline" size={20} color="#8B4513" /> Alert
-          Radius
-        </Text>
+        <SectionHeader title="Alert Radius" icon="location-outline" />
         <Text style={styles.radiusDescription}>
           Set your preferred radius to receive animal rescue alerts
         </Text>
         <View style={styles.radiusOptionsContainer}>
           {radiusOptions.map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[
-                styles.radiusOption,
-                radius === option && styles.radiusOptionSelected,
-              ]}
-              onPress={() => setRadius(option)}
-            >
-              <Text
+            <AnimatedTouchable key={option} onPress={() => setRadius(option)}>
+              <View
                 style={[
-                  styles.radiusOptionText,
-                  radius === option && styles.radiusOptionTextSelected,
+                  styles.radiusOption,
+                  radius === option && styles.radiusOptionSelected,
                 ]}
               >
-                {option}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.radiusOptionText,
+                    radius === option && styles.radiusOptionTextSelected,
+                  ]}
+                >
+                  {option}
+                </Text>
+              </View>
+            </AnimatedTouchable>
           ))}
         </View>
         <View style={styles.radiusInfo}>
-          <Ionicons name="information-circle-outline" size={16} color="#666" />
+          <Ionicons
+            name="information-circle-outline"
+            size={SIZES.fontSmall}
+            color={COLORS.subtext}
+          />
           <Text style={styles.radiusInfoText}>
             Currently covering approximately {radius} around your location
           </Text>
         </View>
       </Surface>
 
-      {/* Enhanced Map View */}
-      <Surface style={styles.mapSection} elevation={4}>
+      {/* Map View */}
+      <Surface style={styles.mapSection} elevation={3}>
         <View style={styles.mapHeader}>
-          <Text style={styles.sectionTitle}>
-            <Ionicons name="map-outline" size={20} color="#8B4513" /> Live
-            Rescue Feed
-          </Text>
-          <Chip icon="refresh" onPress={() => {}}>
+          <SectionHeader title="Live Rescue Feed" icon="map-outline" />
+          <Chip icon="refresh" onPress={() => {}} style={styles.refreshChip}>
             Refresh
           </Chip>
         </View>
         <MapView
           style={styles.map}
           initialRegion={{
-            latitude: 28.6139, // Latitude of central Delhi (near India Gate)
-            longitude: 77.209, // Longitude of central Delhi
-            latitudeDelta: 0.1, // Zoom level (adjustable)
+            latitude: 28.6139,
+            longitude: 77.209,
+            latitudeDelta: 0.1,
             longitudeDelta: 0.1,
           }}
         >
@@ -232,291 +447,134 @@ export default function UserDashboard() {
             <Marker
               key={rescue.id}
               coordinate={rescue.location}
-              pinColor={getSeverityColor(rescue.severity)}
+              pinColor={getSeverityStyles(rescue.severity).color}
               title={rescue.title}
-            />
+            >
+              <View
+                style={[
+                  styles.customMarker,
+                  { backgroundColor: getSeverityStyles(rescue.severity).color },
+                ]}
+              >
+                <Ionicons
+                  iconname={getSeverityStyles(rescue.severity).icon}
+                  size={20}
+                  color="#fff"
+                />
+              </View>
+            </Marker>
           ))}
         </MapView>
       </Surface>
 
-      {/* Enhanced Rescue Case Cards */}
+      {/* Rescue Cases */}
       <View style={styles.casesSection}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="heart-outline" size={20} color="#8B4513" /> Nearby
-          Rescue Cases
-        </Text>
+        <SectionHeader title="Nearby Rescue Cases" icon="heart-outline" />
         {rescueCases.map((rescue) => (
-          <Card style={styles.enhancedCard} key={rescue.id} elevation={4}>
-            {/* Card Header */}
-            <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderLeft}>
-                <Image
-                  source={{ uri: rescue.image }}
-                  style={styles.animalImage}
-                />
-                <View style={styles.cardHeaderText}>
-                  <Text style={styles.cardTitle}>{rescue.title}</Text>
-                  <Text style={styles.cardSubtitle}>
-                    {rescue.species} • {rescue.breed}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.cardHeaderRight}>
-                <Chip
-                  icon={getSeverityIcon(rescue.severity)}
-                  style={[
-                    styles.severityChip,
-                    { backgroundColor: getSeverityColor(rescue.severity) },
-                  ]}
-                  textStyle={{ color: "white", fontSize: 12 }}
-                >
-                  {rescue.severity}
-                </Chip>
-                <Text style={styles.timeStamp}>{rescue.time}</Text>
-              </View>
-            </View>
-
-            <Divider style={styles.cardDivider} />
-
-            {/* Animal Information */}
-            <View style={styles.animalInfo}>
-              <Text style={styles.infoSectionTitle}>Animal Information</Text>
-              <View style={styles.infoGrid}>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Age:</Text>
-                  <Text style={styles.infoValue}>{rescue.age}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Gender:</Text>
-                  <Text style={styles.infoValue}>{rescue.gender}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Weight:</Text>
-                  <Text style={styles.infoValue}>{rescue.weight}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Species:</Text>
-                  <Text style={styles.infoValue}>{rescue.species}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Medical Information */}
-            <View style={styles.medicalInfo}>
-              <Text style={styles.infoSectionTitle}>Medical Status</Text>
-              <Text style={styles.injurySummary}>{rescue.injurySummary}</Text>
-
-              <View style={styles.symptomsContainer}>
-                <Text style={styles.symptomsTitle}>Symptoms:</Text>
-                <View style={styles.symptomsChips}>
-                  {rescue.symptoms.map((symptom, index) => (
-                    <Chip
-                      key={index}
-                      style={styles.symptomChip}
-                      textStyle={{ fontSize: 12 }}
-                    >
-                      {symptom}
-                    </Chip>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.vitalsContainer}>
-                <Text style={styles.vitalsTitle}>Vital Signs:</Text>
-                <View style={styles.vitalsGrid}>
-                  <View style={styles.vitalItem}>
-                    <Text style={styles.vitalLabel}>Temp:</Text>
-                    <Text style={styles.vitalValue}>
-                      {rescue.vitals.temperature}
-                    </Text>
-                  </View>
-                  <View style={styles.vitalItem}>
-                    <Text style={styles.vitalLabel}>Heart:</Text>
-                    <Text style={styles.vitalValue}>
-                      {rescue.vitals.heartRate}
-                    </Text>
-                  </View>
-                  <View style={styles.vitalItem}>
-                    <Text style={styles.vitalLabel}>Breathing:</Text>
-                    <Text style={styles.vitalValue}>
-                      {rescue.vitals.breathing}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Rescue Progress */}
-            <View style={styles.progressSection}>
-              <Text style={styles.progressTitle}>Rescue Progress</Text>
-              <ProgressBar
-                progress={rescue.rescueProgress}
-                color={getSeverityColor(rescue.severity)}
-                style={styles.progressBar}
-              />
-              <Text style={styles.progressText}>
-                {Math.round(rescue.rescueProgress * 100)}% Complete
-              </Text>
-            </View>
-
-            {/* Rescue Team Info */}
-            <View style={styles.rescueTeamInfo}>
-              <View style={styles.teamItem}>
-                <Ionicons name="business-outline" size={16} color="#666" />
-                <Text style={styles.teamText}>NGO: {rescue.ngo}</Text>
-              </View>
-              <View style={styles.teamItem}>
-                <Ionicons name="person-outline" size={16} color="#666" />
-                <Text style={styles.teamText}>
-                  Volunteer: {rescue.volunteer}
-                </Text>
-              </View>
-              <View style={styles.teamItem}>
-                <Ionicons name="card-outline" size={16} color="#666" />
-                <Text style={styles.teamText}>
-                  Est. Cost: {rescue.estimatedCost}
-                </Text>
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.cardActions}>
-              <Button
-                mode="contained"
-                icon="check-circle-outline"
-                style={styles.actionButton}
-                buttonColor="#4CAF50"
-              >
-                Mark Helped
-              </Button>
-              <Button
-                mode="outlined"
-                icon="alert-circle-outline"
-                style={styles.actionButton}
-                textColor="#FF8800"
-              >
-                Report Again
-              </Button>
-              <Button
-                mode="text"
-                icon="share-outline"
-                style={styles.actionButton}
-              >
-                Share
-              </Button>
-            </View>
-          </Card>
+          <RescueCaseCard key={rescue.id} rescue={rescue} />
         ))}
       </View>
 
-      {/* Enhanced Status Updates Section */}
+      {/* Status Updates */}
       <Surface style={styles.statusSection} elevation={2}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="list-outline" size={20} color="#8B4513" /> Your
-          Reports
-        </Text>
-        <Card style={styles.statusCard}>
+        <SectionHeader title="Your Reports" icon="list-outline" />
+        <Card style={styles.statusCard} elevation={1}>
           <Card.Content>
-            <List.Item
-              title="Injured Cow Near Red Fort"
-              description="NGO: Animal Aid • Status: In Progress"
-              left={(props) => (
-                <List.Icon {...props} icon="alert" color="#FF8800" />
-              )}
-              right={(props) => (
-                <View style={styles.statusRight}>
-                  <Badge style={styles.statusBadge}>Active</Badge>
-                  <IconButton {...props} icon="chevron-right" />
+            {[
+              {
+                title: "Injured Cow Near Red Fort",
+                description: "NGO: Animal Aid • Status: In Progress",
+                icon: "alert",
+                iconColor: COLORS.high,
+                badge: "Active",
+                badgeColor: COLORS.low,
+              },
+              {
+                title: "Stray Pup with Broken Leg",
+                description: "NGO: Awaiting Response • Status: Reported",
+                icon: "paw",
+                iconColor: COLORS.primary,
+                badge: "Pending",
+                badgeColor: COLORS.moderate,
+              },
+            ].map(
+              (
+                { title, description, icon, iconColor, badge, badgeColor },
+                index
+              ) => (
+                <View key={index}>
+                  <List.Item
+                    title={title}
+                    description={description}
+                    left={(props) => (
+                      <List.Icon {...props} icon={icon} color={iconColor} />
+                    )}
+                    right={() => (
+                      <View style={styles.statusRight}>
+                        <Badge
+                          style={[
+                            styles.statusBadge,
+                            { backgroundColor: badgeColor },
+                          ]}
+                        >
+                          {badge}
+                        </Badge>
+                        <IconButton icon="chevron-right" />
+                      </View>
+                    )}
+                  />
+                  {index < 1 && <Divider />}
                 </View>
-              )}
-            />
-            <Divider />
-            <List.Item
-              title="Stray Pup with Broken Leg"
-              description="NGO: Awaiting Response • Status: Reported"
-              left={(props) => (
-                <List.Icon {...props} icon="paw" color="#8B4513" />
-              )}
-              right={(props) => (
-                <View style={styles.statusRight}>
-                  <Badge
-                    style={[styles.statusBadge, { backgroundColor: "#FFA500" }]}
-                  >
-                    Pending
-                  </Badge>
-                  <IconButton {...props} icon="chevron-right" />
-                </View>
-              )}
-            />
+              )
+            )}
           </Card.Content>
         </Card>
       </Surface>
-
-      {/* Bottom Padding */}
-      <View style={{ height: 30 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFF8F0",
-  },
-  headerEnhanced: {
-    paddingTop: 34,
-    paddingBottom: 24,
-    paddingHorizontal: 18,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    elevation: 10,
-    shadowColor: "#8B4513",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: {
+    paddingTop: 40,
+    paddingBottom: SIZES.padding,
+    paddingHorizontal: SIZES.padding,
+    borderBottomLeftRadius: SIZES.radius,
+    borderBottomRightRadius: SIZES.radius,
+    elevation: 6,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  // headerAvatarContainer: {
-  //   marginRight: 12,
-  // },
-  headerTextContainer: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  greetingEnhanced: {
-    fontSize: 30,
+  headerTextContainer: { flex: 1 },
+  greeting: {
+    fontSize: SIZES.fontLarge + 10,
     color: "#fff",
-    fontFamily: "cursive", // or your preferred font
-    marginBottom: 2,
+    fontFamily: "cursive",
   },
-  headerSubRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 2,
-  },
-  cityText: {
-    fontSize: 15,
-    color: "white",
+  boldText: { fontWeight: "bold", fontFamily: "monospace" },
+  headerSubRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  subText: {
+    fontSize: SIZES.fontSmall,
+    color: COLORS.accent,
     fontWeight: "600",
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#8B4513",
+    backgroundColor: COLORS.primary,
     marginHorizontal: 8,
   },
-  timeText: {
-    fontSize: 15,
-    color: "white",
-    fontWeight: "600",
-  },
+  iconSpacing: { marginHorizontal: 4 },
   headerNotifContainer: {
-    marginLeft: 12,
     position: "relative",
     justifyContent: "center",
     alignItems: "center",
@@ -525,317 +583,187 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: "#FF4444",
+    backgroundColor: COLORS.critical,
     color: "#fff",
-    fontSize: 10,
+    fontSize: SIZES.fontTiny,
     paddingHorizontal: 4,
-    paddingVertical: 0,
-    zIndex: 2,
-  },
-  header: {
-    paddingVertical: 30,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    elevation: 8,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  greeting: {
-    fontSize: 28,
-    color: "#fff",
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  subInfo: {
-    fontSize: 16,
-    color: "#f0e2c8",
-    marginBottom: 16,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#f0e2c8",
-  },
-  avatar: {
-    borderWidth: 3,
-    borderColor: "#fff",
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#5C4033",
-    flexDirection: "row",
-    alignItems: "center",
   },
   radiusSection: {
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    margin: SIZES.margin,
+    padding: SIZES.padding,
+    borderRadius: SIZES.radius,
+    backgroundColor: COLORS.card,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: SIZES.fontLarge,
+    fontWeight: "bold",
+    color: COLORS.primary,
+  },
+  sectionIcon: { marginRight: 8 },
   radiusDescription: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 16,
+    fontSize: SIZES.fontSmall,
+    color: COLORS.subtext,
+    marginBottom: 12,
   },
   radiusOptionsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   radiusOption: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: SIZES.radius,
     backgroundColor: "#F5F5F5",
     borderWidth: 1,
     borderColor: "#E0E0E0",
   },
   radiusOptionSelected: {
-    backgroundColor: "#8B4513",
-    borderColor: "#8B4513",
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   radiusOptionText: {
-    color: "#666",
-    fontSize: 14,
+    fontSize: SIZES.fontSmall,
+    color: COLORS.subtext,
     fontWeight: "500",
   },
-  radiusOptionTextSelected: {
-    color: "#fff",
-  },
-  radiusInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  radiusInfoText: {
-    fontSize: 12,
-    color: "#666",
-    flex: 1,
-  },
+  radiusOptionTextSelected: { color: "#fff" },
+  radiusInfo: { flexDirection: "row", alignItems: "center", gap: 8 },
+  radiusInfoText: { fontSize: SIZES.fontTiny, color: COLORS.subtext, flex: 1 },
   mapSection: {
-    margin: 16,
-    borderRadius: 16,
+    margin: SIZES.margin,
+    borderRadius: SIZES.radius,
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.card,
   },
   mapHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: SIZES.padding,
     paddingBottom: 8,
   },
-  map: {
-    width: "100%",
-    height: 200,
+  map: { width: "100%", height: 220 },
+  customMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
   },
-  casesSection: {
-    paddingHorizontal: 16,
-  },
-  enhancedCard: {
-    backgroundColor: "#FFFFFF",
-    marginBottom: 16,
-    borderRadius: 16,
+  refreshChip: { backgroundColor: COLORS.accent },
+  casesSection: { paddingHorizontal: SIZES.margin },
+  card: {
+    backgroundColor: COLORS.card,
+    marginBottom: SIZES.margin,
+    borderRadius: SIZES.radius,
     overflow: "hidden",
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    padding: 16,
+    padding: SIZES.padding,
   },
-  cardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  animalImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  cardHeaderText: {
-    flex: 1,
-  },
+  cardHeaderLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
+  animalImage: { width: 50, height: 50, borderRadius: 25, marginRight: 12 },
+  cardHeaderText: { flex: 1 },
   cardTitle: {
-    fontSize: 16,
+    fontSize: SIZES.fontMedium,
     fontWeight: "bold",
-    color: "#333",
+    color: COLORS.text,
   },
   cardSubtitle: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: SIZES.fontSmall,
+    color: COLORS.subtext,
     marginTop: 2,
   },
-  cardHeaderRight: {
-    alignItems: "flex-end",
-  },
-  severityChip: {
-    marginBottom: 4,
-  },
-  timeStamp: {
-    fontSize: 12,
-    color: "#666",
-  },
-  cardDivider: {
-    marginHorizontal: 16,
-  },
-  animalInfo: {
-    padding: 16,
-    paddingBottom: 8,
-  },
+  cardHeaderRight: { alignItems: "flex-end" },
+  severityChip: { marginBottom: 4 },
+  chipText: { color: "#fff", fontSize: SIZES.fontTiny },
+  timeStamp: { fontSize: SIZES.fontTiny, color: COLORS.subtext },
+  cardDivider: { marginHorizontal: SIZES.padding },
+  animalInfo: { padding: SIZES.padding, paddingBottom: 8 },
   infoSectionTitle: {
-    fontSize: 14,
+    fontSize: SIZES.fontSmall,
     fontWeight: "bold",
-    color: "#8B4513",
+    color: COLORS.primary,
     marginBottom: 8,
   },
-  infoGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  infoItem: {
-    flex: 1,
-    minWidth: "45%",
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: "#666",
-  },
+  infoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  infoItem: { flex: 1, minWidth: "45%" },
+  infoLabel: { fontSize: SIZES.fontTiny, color: COLORS.subtext },
   infoValue: {
-    fontSize: 14,
+    fontSize: SIZES.fontSmall,
     fontWeight: "500",
-    color: "#333",
+    color: COLORS.text,
   },
-  medicalInfo: {
-    padding: 16,
-    paddingTop: 8,
-  },
+  medicalInfo: { padding: SIZES.padding, paddingTop: 8 },
   injurySummary: {
-    fontSize: 14,
-    color: "#333",
+    fontSize: SIZES.fontSmall,
+    color: COLORS.text,
     marginBottom: 12,
     lineHeight: 20,
   },
-  symptomsContainer: {
-    marginBottom: 12,
-  },
+  symptomsContainer: { marginBottom: 12 },
   symptomsTitle: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: SIZES.fontTiny,
+    color: COLORS.subtext,
     marginBottom: 6,
   },
-  symptomsChips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-  },
-  symptomChip: {
-    backgroundColor: "#FFE5E5",
-  },
-  vitalsContainer: {
-    marginBottom: 8,
-  },
+  symptomsChips: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
+  symptomChip: { backgroundColor: "#FFE5E5" },
+  vitalsContainer: { marginBottom: 8 },
   vitalsTitle: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: SIZES.fontTiny,
+    color: COLORS.subtext,
     marginBottom: 6,
   },
-  vitalsGrid: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  vitalItem: {
-    flex: 1,
-  },
-  vitalLabel: {
-    fontSize: 12,
-    color: "#666",
-  },
+  vitalsGrid: { flexDirection: "row", gap: 16 },
+  vitalItem: { flex: 1 },
+  vitalLabel: { fontSize: SIZES.fontTiny, color: COLORS.subtext },
   vitalValue: {
-    fontSize: 14,
+    fontSize: SIZES.fontSmall,
     fontWeight: "500",
-    color: "#333",
+    color: COLORS.text,
   },
-  progressSection: {
-    padding: 16,
-    paddingTop: 8,
-  },
+  progressSection: { padding: SIZES.padding, paddingTop: 8 },
   progressTitle: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: SIZES.fontTiny,
+    color: COLORS.subtext,
     marginBottom: 6,
   },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 4,
-  },
+  progressBar: { height: 6, borderRadius: 3, marginBottom: 4 },
   progressText: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: SIZES.fontTiny,
+    color: COLORS.subtext,
     textAlign: "right",
   },
-  rescueTeamInfo: {
-    padding: 16,
-    paddingTop: 8,
-    gap: 8,
-  },
-  teamItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  teamText: {
-    fontSize: 14,
-    color: "#333",
-  },
+  rescueTeamInfo: { padding: SIZES.padding, paddingTop: 8, gap: 8 },
+  teamItem: { flexDirection: "row", alignItems: "center", gap: 8 },
+  teamText: { fontSize: SIZES.fontSmall, color: COLORS.text },
   cardActions: {
     flexDirection: "row",
     gap: 8,
-    padding: 16,
+    padding: SIZES.padding,
     paddingTop: 8,
   },
-  actionButton: {
-    flex: 1,
-  },
+  actionButton: { flex: 1 },
   statusSection: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    margin: SIZES.margin,
+    padding: SIZES.padding,
+    borderRadius: SIZES.radius,
+    backgroundColor: COLORS.card,
   },
-  statusCard: {
-    backgroundColor: "#FAFAFA",
-    borderRadius: 12,
-  },
-  statusRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusBadge: {
-    backgroundColor: "#4CAF50",
-    color: "#fff",
-    marginRight: 8,
-  },
+  statusCard: { backgroundColor: COLORS.accent, borderRadius: 12 },
+  statusRight: { flexDirection: "row", alignItems: "center" },
+  statusBadge: { backgroundColor: COLORS.low, color: "#fff", marginRight: 8 },
 });
