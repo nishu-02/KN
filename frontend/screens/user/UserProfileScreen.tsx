@@ -883,7 +883,7 @@ export default function UserProfileScreen() {
 const styles = StyleSheet.create({
   container: { backgroundColor: "#FFF5E1", flex: 1 },
   bannerContainer: { position: "relative" },
-  banner: { height: 260, justifyContent: "center", alignItems: "center" },
+  banner: { height: 260, justifyContent: "center", alignItems: "center", paddingTop: 38 },
   bannerOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   avatarContainer: { alignItems: "center", zIndex: 2 },
   avatar: {
@@ -892,15 +892,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
   name: {
-    marginTop: 12,
+    marginTop: 1,
     fontWeight: "bold",
     fontSize: 26,
     color: "#fff",
     textAlign: "center",
     fontFamily: "cursive",
   },
-  title: { color: "#f0f0f0", fontSize: 16, textAlign: "center", marginTop: 6 },
-  profileMeta: { flexDirection: "row", marginTop: 10, gap: 16 },
+  title: { color: "#f0f0f0", fontSize: 16, textAlign: "center", marginTop: 1 },
+  profileMeta: { flexDirection: "row", marginTop: 1, gap: 16 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   metaText: { color: "#f0f0f0", fontSize: 13 },
   profileActions: {
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   achievementTitle: {
     fontSize: 15,

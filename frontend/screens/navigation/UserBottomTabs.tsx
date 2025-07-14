@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { View, StyleSheet, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, Alert } from "react-native";
 import { FAB } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+
 
 import UserHomeScreen from "../user/UserHomeScreen";
 import DonationsScreen from "../user/DonationsScreen";
@@ -46,8 +48,32 @@ export default function UserBottomTabs() {
   // If you have a navigation type, import it and use it here. Otherwise, use 'any' as a quick fix:
   const navigation = useNavigation<any>();
 
-  const handleCameraPress = () => {
-    navigation.navigate("Camera");
+const handleCameraPress = async () => {
+    // Request camera permissions
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "Camera access is required to take pictures. Please enable it in your device settings.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Launch camera
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      // Navigate to UploadRescueScreen with the captured image
+      navigation.navigate("UploadRescue", { imageUri: result.assets[0].uri });
+    } else if (result.canceled) {
+      // User canceled the camera
+      Alert.alert("Cancelled", "No image was captured.");
+    }
   };
 
   return (
