@@ -103,7 +103,7 @@ const rescueCases: RescueCase[] = [
     volunteer: "Dr. Sarah Ahmed",
     estimatedCost: "₹2,500 - ₹5,000",
     location: { latitude: 37.78825, longitude: -122.4324 },
-    image: "https://via.placeholder.com/100x100/8B4513/FFFFFF?text=DOG",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ-8XeubbWjvWPFpml9ElUu9H74aal0LBkpzICWcoX-l6Zs8vhy-fgkkJqsKVZVfru34Lc",
     rescueProgress: 0.2,
   },
   {
@@ -124,7 +124,7 @@ const rescueCases: RescueCase[] = [
     volunteer: "Rahul Sharma",
     estimatedCost: "₹800 - ₹1,500",
     location: { latitude: 37.78925, longitude: -122.4344 },
-    image: "https://via.placeholder.com/100x100/8B4513/FFFFFF?text=BIRD",
+    image: "https://www.shutterstock.com/image-photo/injured-sparrow-one-leg-260nw-1569750835.jpg",
     rescueProgress: 0.6,
   },
 ];
@@ -342,7 +342,7 @@ export default function UserDashboard() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ paddingBottom: SIZES.margin }}
+      contentContainerStyle={{ paddingBottom: 120 }}
     >
       {/* Header */}
       <LinearGradient
@@ -559,7 +559,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontFamily: "cursive",
   },
-  boldText: { fontWeight: "bold", fontFamily: "monospace" },
+  boldText: { fontWeight: "bold", fontFamily: "cursive" },
+
+
   headerSubRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   subText: {
     fontSize: SIZES.fontSmall,
@@ -719,8 +721,8 @@ const styles = StyleSheet.create({
     color: COLORS.subtext,
     marginBottom: 6,
   },
-  symptomsChips: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  symptomChip: { backgroundColor: "#FFE5E5" },
+  symptomsChips: { flexDirection: "row", flexWrap: "wrap", gap: 4},
+  symptomChip: { backgroundColor: "#ff6868ff" },
   vitalsContainer: { marginBottom: 8 },
   vitalsTitle: {
     fontSize: SIZES.fontTiny,

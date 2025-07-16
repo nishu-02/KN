@@ -66,8 +66,16 @@ export default function NGOListScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const availableFilters = ["Dogs", "Cats", "Birds", "Large Animals", "Medical", "Critical Care"];
+  
+  
+  const filteredNGOs = ngoData.filter((ngo) =>
+    ngo.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+  (selectedFilters.length === 0 || selectedFilters.every(filter => ngo.specialization.includes(filter)))
+);
 
+
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -76,12 +84,6 @@ export default function NGOListScreen() {
     }).start();
   }, []);
 
-  const availableFilters = ["Dogs", "Cats", "Birds", "Large Animals", "Medical", "Critical Care"];
-
-  const filteredNGOs = ngoData.filter((ngo) =>
-    ngo.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-    (selectedFilters.length === 0 || selectedFilters.every(filter => ngo.specialization.includes(filter)))
-  );
 
   const renderItem = ({ item }: { item: typeof ngoData[0] }) => {
     const scaleAnim = new Animated.Value(1);
@@ -233,6 +235,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF5E1",
+    paddingBottom: 80,
   },
   header: {
     paddingHorizontal: 16,
