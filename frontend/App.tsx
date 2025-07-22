@@ -5,10 +5,12 @@ import {
   useDispatch,
   useSelector,
 } from "react-redux";
+
 import {
   Provider as PaperProvider,
   ActivityIndicator,
 } from "react-native-paper";
+
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Notifications from "expo-notifications";
@@ -19,8 +21,14 @@ import RegisterPage from "./screens/RegisterScreen";
 import RegisterNGOScreen from "./screens/RegisterNGOScreen";
 import RegisterIndividualScreen from "./screens/RegisterIndividualScreen";
 import NGODashboardScreen from "./screens/NGODashboardScreen";
-import UserDashboardScreen from "./screens/UserDashboardScreen";
+import UserDashboardScreen from "./screens/user/UploadRescueScreen";
 import { registerForPushNotificationsAsync } from "./PushTokenRegister";
+
+// import CameraScreen from "./screens/user/camera/CameraScreen";
+import UploadRescueScreen from "./screens/user/camera/UploadRescueScreen";
+
+import UserBottomTabs from "./screens/navigation/UserBottomTabs";
+
 
 const Stack = createNativeStackNavigator();
 
@@ -42,6 +50,11 @@ Notifications.setNotificationHandler({
 });
 
 function RootNavigator() {
+  ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  });
   const dispatch = useDispatch();
   const { initialized, authenticated, loading, user } = useSelector(
     (s: RootState) => s.auth
@@ -132,8 +145,8 @@ function RootNavigator() {
         ) : (
           <>
             <Stack.Screen
-              name="UserDashboard"
-              component={UserDashboardScreen}
+              name="UserHome"
+              component={UserBottomTabs}
               options={{ headerShown: false }}
             />
             <Stack.Screen
@@ -141,6 +154,8 @@ function RootNavigator() {
               component={NGODashboardScreen}
               options={{ headerShown: false }}
             />
+           <Stack.Screen name="BottomTabs" component={UserBottomTabs} />
+      <Stack.Screen name="UploadRescue" component={UploadRescueScreen} />
           </>
         )}
       </Stack.Navigator>
