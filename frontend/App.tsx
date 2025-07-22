@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { StatusBar } from "react-native";
 import {
   Provider as ReduxProvider,
@@ -14,7 +14,7 @@ import {
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Notifications from "expo-notifications";
-import store, { RootState } from "./core/redux/store";
+import store, { RootState, useAppDispatch } from "./core/redux/store";
 import { initSession } from "./core/redux/slices/authSlice";
 import LoginScreen from "./screens/LoginScreen";
 import RegisterPage from "./screens/RegisterScreen";
@@ -26,9 +26,15 @@ import { registerForPushNotificationsAsync } from "./PushTokenRegister";
 
 // import CameraScreen from "./screens/user/camera/CameraScreen";
 import UploadRescueScreen from "./screens/user/camera/UploadRescueScreen";
+import SplashScreen from "./screens/user/SplashScreen";
 
 import UserBottomTabs from "./screens/navigation/UserBottomTabs";
+import { ThemeContext, lightTheme, darkTheme } from "./theme";
 
+function stripCustomThemeKeys(theme: any) {
+  const { cardShadow, spacing, ...rest } = theme;
+  return rest;
+}
 
 const Stack = createNativeStackNavigator();
 
@@ -46,16 +52,13 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
 function RootNavigator() {
-  ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  });
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const { initialized, authenticated, loading, user } = useSelector(
     (s: RootState) => s.auth
   );
@@ -89,8 +92,8 @@ function RootNavigator() {
       });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      notificationListener.remove();
+      responseListener.remove();
     };
   }, []);
 
@@ -116,7 +119,7 @@ function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={theme}>
+    <>
       <StatusBar barStyle="dark-content" />
       <Stack.Navigator>
         {!authenticated ? (
@@ -159,16 +162,35 @@ function RootNavigator() {
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
+    </>
   );
 }
 
 export default function App() {
+  const [isDark, setIsDark] = useState(false);
+  const [showSplash, setShowSplash] = useState(true); // <-- Add this
+  const theme = useMemo(() => (isDark ? darkTheme : lightTheme), [isDark]);
+  const toggleTheme = () => setIsDark((prev) => !prev);
+
+  useEffect(() => {
+    // Show splash for 2 seconds
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
   return (
-    <ReduxProvider store={store}>
-      <PaperProvider>
-        <RootNavigator />
-      </PaperProvider>
-    </ReduxProvider>
+    <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+      <ReduxProvider store={store}>
+        <PaperProvider theme={stripCustomThemeKeys(theme)}>
+          <NavigationContainer theme={stripCustomThemeKeys(theme)}>
+            <RootNavigator />
+          </NavigationContainer>
+        </PaperProvider>
+      </ReduxProvider>
+    </ThemeContext.Provider>
   );
 }

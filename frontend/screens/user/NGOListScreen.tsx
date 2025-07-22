@@ -19,6 +19,7 @@ import {
 } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useThemeContext } from '../../theme';
 
 const ngoData = [
   {
@@ -63,6 +64,7 @@ const ngoData = [
 ];
 
 export default function NGOListScreen() {
+  const { theme } = useThemeContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
@@ -109,25 +111,25 @@ export default function NGOListScreen() {
           onPressOut={handlePressOut}
           activeOpacity={0.9}
         >
-          <Card style={styles.card} mode="elevated">
-            <Card.Cover source={{ uri: item.image }} style={styles.cardImage} />
+          <Card style={[styles(theme).card, theme.cardShadow, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]} mode="elevated">
+            <Card.Cover source={{ uri: item.image }} style={styles(theme).cardImage} />
             <Card.Content>
-              <Text variant="titleLarge" style={styles.title}>{item.name}</Text>
-              <Text style={styles.description}>{item.description}</Text>
-              <View style={styles.rowSpaceBetween}>
-                <Text style={styles.textMuted}>Distance: {item.distance}</Text>
-                <Chip style={[styles.statusChip, getStatusColor(item.status)]}>{item.status}</Chip>
+              <Text variant="titleLarge" style={[styles(theme).title, { color: theme.colors.text }]}>{item.name}</Text>
+              <Text style={[styles(theme).description, { color: theme.colors.subtext }]}>{item.description}</Text>
+              <View style={styles(theme).rowSpaceBetween}>
+                <Text style={[styles(theme).textMuted, { color: theme.colors.subtext }]}>Distance: {item.distance}</Text>
+                <Chip style={[styles(theme).statusChip, getStatusColor(item.status, theme)]} textStyle={{ color: theme.colors.text }}>{item.status}</Chip>
               </View>
-              <View style={styles.tagRow}>
+              <View style={styles(theme).tagRow}>
                 {item.specialization.map((tag, i) => (
-                  <Chip key={i} style={styles.tag} textStyle={styles.tagText}>{tag}</Chip>
+                  <Chip key={i} style={[styles(theme).tag, { backgroundColor: theme.colors.accent, borderColor: theme.colors.secondary }]} textStyle={[styles(theme).tagText, { color: theme.colors.primary }]}>{tag}</Chip>
                 ))}
               </View>
-              <Text style={styles.textMuted}>Response Time: {item.responseTime} | Success Rate: {item.successRate}</Text>
-              <Text style={styles.textMuted}>⭐ {item.rating} ({item.reviews} reviews)</Text>
-              <View style={styles.actionRow}>
-                <Button mode="outlined" style={styles.button} textColor="#8B4513">Volunteer</Button>
-                <Button mode="contained" buttonColor="#8B4513" textColor="#fff" style={styles.button}>Donate</Button>
+              <Text style={[styles(theme).textMuted, { color: theme.colors.subtext }]}>Response Time: {item.responseTime} | Success Rate: {item.successRate}</Text>
+              <Text style={[styles(theme).textMuted, { color: theme.colors.subtext }]}>★ {item.rating} ({item.reviews} reviews)</Text>
+              <View style={styles(theme).actionRow}>
+                <Button mode="outlined" style={styles(theme).button} textColor={theme.colors.primary}>Volunteer</Button>
+                <Button mode="contained" buttonColor={theme.colors.primary} textColor={theme.colors.card} style={styles(theme).button}>Donate</Button>
               </View>
             </Card.Content>
           </Card>
@@ -136,12 +138,12 @@ export default function NGOListScreen() {
     );
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, theme: any) => {
     switch (status.toLowerCase()) {
-      case "available": return { backgroundColor: '#A3D9A5' };
-      case "busy": return { backgroundColor: '#FFD580' };
-      case "emergency-only": return { backgroundColor: '#FF9999' };
-      default: return { backgroundColor: '#D3D3D3' };
+      case "available": return { backgroundColor: theme.colors.low };
+      case "busy": return { backgroundColor: theme.colors.high };
+      case "emergency-only": return { backgroundColor: theme.colors.critical };
+      default: return { backgroundColor: theme.colors.accent };
     }
   };
 
@@ -154,19 +156,19 @@ export default function NGOListScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <LinearGradient
-        colors={["#8B4513", "#D2B48C"]}
+        colors={[theme.colors.card, theme.colors.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={styles(theme).header}
       >
-        <View style={styles.headerContent}>
-          <Text style={styles.karunaTitle}>NGOs Listing</Text>
+        <View style={styles(theme).headerContent}>
+          <Text style={[styles(theme).karunaTitle, { color: theme.colors.primary }]}>NGOs Listing</Text>
           <IconButton
             icon="filter"
-            iconColor="#FFF"
+            iconColor={theme.colors.primary}
             size={24}
             onPress={() => setFilterModalVisible(true)}
           />
@@ -175,9 +177,9 @@ export default function NGOListScreen() {
           placeholder="Search NGOs..."
           onChangeText={setSearchQuery}
           value={searchQuery}
-          style={styles.searchBarExpanded}
-          iconColor="#8B4513"
-          inputStyle={{ color: "#4E3629" }}
+          style={[styles(theme).searchBarExpanded, { backgroundColor: theme.colors.accent, borderColor: theme.colors.secondary }]}
+          iconColor={theme.colors.primary}
+          inputStyle={{ color: theme.colors.text }}
         />
       </LinearGradient>
 
@@ -188,18 +190,19 @@ export default function NGOListScreen() {
         animationType="slide"
         onRequestClose={() => setFilterModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text variant="titleLarge" style={styles.modalTitle}>Filter NGOs</Text>
-            <View style={styles.filterRow}>
+        <View style={styles(theme).modalContainer}>
+          <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.card }]}>
+            <Text variant="titleLarge" style={[styles(theme).modalTitle, { color: theme.colors.primary }]}>Filter NGOs</Text>
+            <View style={styles(theme).filterRow}>
               {availableFilters.map((filter) => (
                 <Chip
                   key={filter}
                   style={[
-                    styles.filterChip,
-                    selectedFilters.includes(filter) && styles.filterChipSelected,
+                    styles(theme).filterChip,
+                    { backgroundColor: theme.colors.accent, borderColor: theme.colors.secondary },
+                    selectedFilters.includes(filter) && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
                   ]}
-                  textStyle={styles.filterChipText}
+                  textStyle={[styles(theme).filterChipText, { color: theme.colors.text }]}
                   onPress={() => toggleFilter(filter)}
                 >
                   {filter}
@@ -208,9 +211,9 @@ export default function NGOListScreen() {
             </View>
             <Button
               mode="contained"
-              buttonColor="#8B4513"
-              textColor="#fff"
-              style={styles.modalButton}
+              buttonColor={theme.colors.primary}
+              textColor={theme.colors.card}
+              style={styles(theme).modalButton}
               onPress={() => setFilterModalVisible(false)}
             >
               Apply Filters
@@ -224,27 +227,27 @@ export default function NGOListScreen() {
         data={filteredNGOs}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles(theme).listContent}
         style={{ flex: 1 }}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF5E1",
-    paddingBottom: 80,
+    paddingBottom: theme.spacing.margin * 5,
   },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: theme.spacing.padding,
     paddingTop: 40,
-    paddingBottom: 14,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingBottom: theme.spacing.padding - 2,
+    borderBottomLeftRadius: theme.spacing.radius,
+    borderBottomRightRadius: theme.spacing.radius,
     elevation: 8,
     zIndex: 10,
+    backgroundColor: theme.colors.card,
   },
   headerContent: {
     flexDirection: "row",
@@ -252,21 +255,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  logo: {
-    backgroundColor: "#FFF",
-  },
   karunaTitle: {
     fontWeight: "bold",
     fontSize: 28,
-    color: "#FFF",
     fontFamily: "cursive",
     letterSpacing: 1,
   },
   searchBarExpanded: {
-    backgroundColor: "#FDF1DC",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#D2B48C",
     elevation: 2,
     height: 48,
   },
@@ -277,14 +274,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 20,
     width: "90%",
     maxWidth: 400,
   },
   modalTitle: {
-    color: "#5C4033",
     marginBottom: 16,
   },
   filterRow: {
@@ -294,44 +289,35 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   filterChip: {
-    backgroundColor: "#F5F5DC",
     borderWidth: 1,
-    borderColor: "#D2B48C",
-  },
-  filterChipSelected: {
-    backgroundColor: "#8B4513",
-    borderColor: "#8B4513",
   },
   filterChipText: {
-    color: "#5C4033",
+    fontWeight: "500",
   },
   modalButton: {
     borderRadius: 8,
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: theme.spacing.padding,
+    paddingBottom: theme.spacing.margin * 2.5,
   },
   card: {
-    backgroundColor: "#FAF3E0",
-    marginBottom: 16,
-    borderRadius: 16,
-    elevation: 4,
+    marginBottom: theme.spacing.margin,
+    borderRadius: theme.spacing.radius,
+    borderWidth: 1,
     overflow: "hidden",
   },
   cardImage: {
     height: 200,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: theme.spacing.radius,
+    borderTopRightRadius: theme.spacing.radius,
   },
   title: {
-    color: "#5C4033",
     marginTop: 12,
     marginBottom: 6,
     fontWeight: "bold",
   },
   description: {
-    color: "#6B4F3A",
     marginBottom: 8,
     lineHeight: 20,
   },
@@ -348,13 +334,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tag: {
-    backgroundColor: "#FFF5E1",
     borderWidth: 1,
-    borderColor: "#D2B48C",
     borderRadius: 8,
   },
   tagText: {
-    color: "#6B4F3A",
     fontSize: 12,
   },
   statusChip: {
@@ -369,10 +352,8 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     borderRadius: 8,
-    borderColor: "#8B4513",
   },
   textMuted: {
-    color: "#7C5C42",
     fontSize: 14,
     marginBottom: 4,
   },

@@ -3,6 +3,7 @@ import { View, StyleSheet, FlatList, Image, TouchableOpacity, Animated, Modal } 
 import { Text, Card, Button, ProgressBar, Searchbar, IconButton, Chip, Avatar } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useThemeContext } from '../../theme';
 
 const donationData = [
   {
@@ -63,6 +64,7 @@ const donationData = [
 ];
 
 export default function DonationsScreen() {
+  const { theme } = useThemeContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchActive, setSearchActive] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -109,25 +111,23 @@ export default function DonationsScreen() {
           onPressOut={handlePressOut}
           activeOpacity={0.9}
         >
-          <Card style={styles.card} mode="elevated">
-            <Card.Cover source={{ uri: item.image }} style={styles.cardImage} />
+          <Card style={[styles(theme).card, theme.cardShadow, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]} mode="elevated">
+            <Card.Cover source={{ uri: item.image }} style={styles(theme).cardImage} />
             <Card.Content>
-              <Text variant="titleLarge" style={styles.title}>{item.title}</Text>
-              <Text variant="bodyMedium" style={styles.description}>{item.description}</Text>
-              <Text style={styles.ngo}>NGO: {item.ngo}</Text>
-              <Chip style={styles.categoryChip} textStyle={styles.categoryChipText}>
-                {item.category}
-              </Chip>
-              <ProgressBar progress={progress} color="#8B4513" style={styles.progress} />
-              <Text style={styles.raised}>₹{item.raised} raised of ₹{item.goal}</Text>
-              <Text style={styles.deadline}>Deadline: {item.deadline}</Text>
+              <Text variant="titleLarge" style={[styles(theme).title, { color: theme.colors.text }]}>{item.title}</Text>
+              <Text variant="bodyMedium" style={[styles(theme).description, { color: theme.colors.subtext }]}>{item.description}</Text>
+              <Text style={[styles(theme).ngo, { color: theme.colors.subtext }]}>NGO: {item.ngo}</Text>
+              <Chip style={[styles(theme).categoryChip, { backgroundColor: theme.colors.accent, borderColor: theme.colors.secondary }]} textStyle={[styles(theme).categoryChipText, { color: theme.colors.primary }]}>{item.category}</Chip>
+              <ProgressBar progress={progress} color={theme.colors.primary} style={styles(theme).progress} />
+              <Text style={[styles(theme).raised, { color: theme.colors.text }]}>₹{item.raised} raised of ₹{item.goal}</Text>
+              <Text style={[styles(theme).deadline, { color: theme.colors.subtext }]}>Deadline: {item.deadline}</Text>
             </Card.Content>
             <Card.Actions>
               <Button
                 mode="contained"
-                buttonColor="#8B4513"
-                textColor="#fff"
-                style={styles.button}
+                buttonColor={theme.colors.primary}
+                textColor={theme.colors.card}
+                style={styles(theme).button}
               >
                 Pay Now
               </Button>
@@ -147,26 +147,26 @@ export default function DonationsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}> 
       {/* Header */}
       <LinearGradient
-        colors={["#8B4513", "#D2B48C"]}
+        colors={[theme.colors.card, theme.colors.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={styles(theme).header}
       >
-        <View style={styles.headerContent}>
-          <Text style={styles.karunaTitle}>Donations</Text>
-          <View style={styles.headerIcons}>
+        <View style={styles(theme).headerContent}>
+          <Text style={[styles(theme).karunaTitle, { color: theme.colors.primary }]}>Donations</Text>
+          <View style={styles(theme).headerIcons}>
             <IconButton
               icon="filter"
-              iconColor="#FFF"
+              iconColor={theme.colors.primary}
               size={24}
               onPress={() => setFilterModalVisible(true)}
             />
             <IconButton
               icon="magnify"
-              iconColor="#FFF"
+              iconColor={theme.colors.primary}
               size={24}
               onPress={() => setSearchActive(true)}
             />
@@ -177,9 +177,9 @@ export default function DonationsScreen() {
             placeholder="Search donations..."
             onChangeText={setSearchQuery}
             value={searchQuery}
-            style={styles.searchBarExpanded}
-            iconColor="#8B4513"
-            inputStyle={{ color: "#4E3629" }}
+            style={[styles(theme).searchBarExpanded, { backgroundColor: theme.colors.accent, borderColor: theme.colors.secondary }]}
+            iconColor={theme.colors.primary}
+            inputStyle={{ color: theme.colors.text }}
             autoFocus
             onBlur={() => setSearchActive(false)}
           />
@@ -193,18 +193,19 @@ export default function DonationsScreen() {
         animationType="slide"
         onRequestClose={() => setFilterModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text variant="titleLarge" style={styles.modalTitle}>Filter Donations</Text>
-            <View style={styles.filterRow}>
+        <View style={styles(theme).modalContainer}>
+          <View style={[styles(theme).modalContent, { backgroundColor: theme.colors.card }]}> 
+            <Text variant="titleLarge" style={[styles(theme).modalTitle, { color: theme.colors.primary }]}>Filter Donations</Text>
+            <View style={styles(theme).filterRow}>
               {availableFilters.map((filter) => (
                 <Chip
                   key={filter}
                   style={[
-                    styles.filterChip,
-                    selectedFilters.includes(filter) && styles.filterChipSelected,
+                    styles(theme).filterChip,
+                    { backgroundColor: theme.colors.accent, borderColor: theme.colors.secondary },
+                    selectedFilters.includes(filter) && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
                   ]}
-                  textStyle={styles.filterChipText}
+                  textStyle={[styles(theme).filterChipText, { color: theme.colors.text }]}
                   onPress={() => toggleFilter(filter)}
                 >
                   {filter}
@@ -213,9 +214,9 @@ export default function DonationsScreen() {
             </View>
             <Button
               mode="contained"
-              buttonColor="#8B4513"
-              textColor="#fff"
-              style={styles.modalButton}
+              buttonColor={theme.colors.primary}
+              textColor={theme.colors.card}
+              style={styles(theme).modalButton}
               onPress={() => setFilterModalVisible(false)}
             >
               Apply Filters
@@ -229,28 +230,27 @@ export default function DonationsScreen() {
         data={filteredDonations}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles(theme).listContent}
         style={{ flex: 1 }}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF5E1",
-    paddingBottom: 80,
-
+    paddingBottom: theme.spacing.margin * 5,
   },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: theme.spacing.padding,
     paddingTop: 40,
-    paddingBottom: 14,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingBottom: theme.spacing.padding - 2,
+    borderBottomLeftRadius: theme.spacing.radius,
+    borderBottomRightRadius: theme.spacing.radius,
     elevation: 8,
     zIndex: 10,
+    backgroundColor: theme.colors.card,
   },
   headerContent: {
     flexDirection: "row",
@@ -258,13 +258,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 5,
   },
-  logo: {
-    backgroundColor: "#FFF",
-  },
   karunaTitle: {
     fontWeight: "bold",
     fontSize: 28,
-    color: "#FFF",
     fontFamily: "cursive",
     letterSpacing: 1,
   },
@@ -273,10 +269,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   searchBarExpanded: {
-    backgroundColor: "#FDF1DC",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#D2B48C",
     elevation: 2,
     height: 48,
   },
@@ -287,14 +281,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 20,
     width: "90%",
     maxWidth: 400,
   },
   modalTitle: {
-    color: "#5C4033",
     marginBottom: 16,
   },
   filterRow: {
@@ -304,62 +296,49 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   filterChip: {
-    backgroundColor: "#F5F5DC",
     borderWidth: 1,
-    borderColor: "#D2B48C",
-  },
-  filterChipSelected: {
-    backgroundColor: "#8B4513",
-    borderColor: "#8B4513",
   },
   filterChipText: {
-    color: "#5C4033",
+    fontWeight: "500",
   },
   modalButton: {
     borderRadius: 8,
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: theme.spacing.padding,
+    paddingBottom: theme.spacing.margin * 2.5,
   },
   card: {
-    backgroundColor: "#FAF3E0",
-    marginBottom: 16,
-    borderRadius: 16,
-    elevation: 4,
+    marginBottom: theme.spacing.margin,
+    borderRadius: theme.spacing.radius,
+    borderWidth: 1,
     overflow: "hidden",
   },
   cardImage: {
     height: 200,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: theme.spacing.radius,
+    borderTopRightRadius: theme.spacing.radius,
   },
   title: {
-    color: "#5C4033",
     marginTop: 12,
     marginBottom: 6,
     fontWeight: "bold",
   },
   description: {
-    color: "#6B4F3A",
     marginBottom: 8,
     lineHeight: 20,
   },
   ngo: {
-    color: "#8B5E3C",
     fontStyle: "italic",
     marginBottom: 6,
   },
   categoryChip: {
-    backgroundColor: "#FFF5E1",
     borderWidth: 1,
-    borderColor: "#D2B48C",
     borderRadius: 8,
     alignSelf: "flex-start",
     marginBottom: 6,
   },
   categoryChipText: {
-    color: "#6B4F3A",
     fontSize: 12,
   },
   progress: {
@@ -367,15 +346,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginTop: 6,
     marginBottom: 6,
-    backgroundColor: "#EDE0C8",
   },
   raised: {
-    color: "#5E3D2B",
     fontWeight: "500",
     marginBottom: 4,
   },
   deadline: {
-    color: "#7C5C42",
     marginBottom: 8,
   },
   button: {

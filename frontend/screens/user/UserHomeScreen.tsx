@@ -27,22 +27,23 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
+import { useThemeContext } from '../../theme';
 
 const screenWidth = Dimensions.get("window").width;
 
 // Constants for styling
 const COLORS = {
-  primary: "#8B4513",
-  secondary: "#D2B48C",
-  background: "#FFF8F0",
+  primary: "#6D4C41", // Softer brown
+  secondary: "#BCAAA4", // Muted tan
+  background: "#FAFAFA", // Very light gray
   card: "#FFFFFF",
-  text: "#333",
-  subtext: "#666",
-  critical: "#FF4444",
-  high: "#FF8800",
-  moderate: "#FFA500",
-  low: "#4CAF50",
-  accent: "#F5F5DC",
+  text: "#222",
+  subtext: "#888",
+  critical: "#FFCDD2", // Pastel red
+  high: "#FFE0B2", // Pastel orange
+  moderate: "#FFF9C4", // Pastel yellow
+  low: "#C8E6C9", // Pastel green
+  accent: "#F5F5F5", // Subtle accent
 };
 
 const SIZES = {
@@ -132,21 +133,28 @@ const rescueCases: RescueCase[] = [
 const radiusOptions = ["1 km", "2 km", "5 km", "10 km", "15 km", "25 km"];
 
 // Utility Functions
-const getSeverityStyles = (severity: string) => ({
+const getSeverityStyles = (severity: string, theme: any) => ({
   color:
     {
-      Critical: COLORS.critical,
-      High: COLORS.high,
-      Moderate: COLORS.moderate,
-      Low: COLORS.low,
-    }[severity] || COLORS.subtext,
+      Critical: theme.colors.critical,
+      High: theme.colors.high,
+      Moderate: theme.colors.moderate,
+      Low: theme.colors.low,
+    }[severity] || theme.colors.subtext,
   icon:
     {
-      Critical: "alert-circle",
-      High: "alert",
+      Critical: "alert-circle-outline",
+      High: "alert-outline",
       Moderate: "alert-outline",
-      Low: "check-circle",
-    }[severity] || "help-circle",
+      Low: "checkmark-circle-outline",
+    }[severity] || "help-circle-outline",
+  textColor:
+    {
+      Critical: "#B71C1C",
+      High: "#E65100",
+      Moderate: "#F9A825",
+      Low: "#388E3C",
+    }[severity] || theme.colors.subtext,
 });
 
 // Reusable Components
@@ -174,155 +182,149 @@ const AnimatedTouchable: React.FC<{
 const SectionHeader: React.FC<{
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
-}> = ({ title, icon }) => (
-  <View style={styles.sectionHeader}>
+  theme: any;
+  themedStyles: any;
+}> = ({ title, icon, theme, themedStyles }) => (
+  <View style={themedStyles.sectionHeader}>
     <Ionicons
-      name={icon as keyof typeof Ionicons.glyphMap}
-      size={SIZES.fontLarge}
-      color={COLORS.primary}
-      style={styles.sectionIcon}
+      name={icon}
+      size={theme.spacing.fontMedium || 16}
+      color={theme.colors.tabActive}
+      style={themedStyles.sectionIcon}
     />
-    <Text style={styles.sectionTitle}>{title}</Text>
+    <Text style={themedStyles.sectionTitle}>{title}</Text>
   </View>
 );
 
-const RescueCaseCard: React.FC<{ rescue: RescueCase }> = ({ rescue }) => {
-  const { color, icon } = getSeverityStyles(rescue.severity);
+const RescueCaseCard: React.FC<{ rescue: RescueCase; theme: any; themedStyles: any }> = ({ rescue, theme, themedStyles }) => {
+  const { color, icon, textColor } = getSeverityStyles(rescue.severity, theme);
 
   return (
-    <Card style={styles.card} elevation={3}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderLeft}>
-          <Image source={{ uri: rescue.image }} style={styles.animalImage} />
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>{rescue.title}</Text>
-            <Text
-              style={styles.cardSubtitle}
-            >{`${rescue.species} • ${rescue.breed}`}</Text>
+    <Card style={themedStyles.card} elevation={0}>
+      <View style={themedStyles.cardHeader}>
+        <View style={themedStyles.cardHeaderLeft}>
+          <Image source={{ uri: rescue.image }} style={themedStyles.animalImage} />
+          <View style={themedStyles.cardHeaderText}>
+            <Text style={themedStyles.cardTitle}>{rescue.title}</Text>
+            <Text style={themedStyles.cardSubtitle}>{`${rescue.species} • ${rescue.breed}`}</Text>
           </View>
         </View>
-        <View style={styles.cardHeaderRight}>
+        <View style={themedStyles.cardHeaderRight}>
           <Chip
-            icon={icon}
-            style={[styles.severityChip, { backgroundColor: color }]}
-            textStyle={styles.chipText}
+            icon={icon as any}
+            style={[themedStyles.severityChip, { backgroundColor: color, borderWidth: 1, borderColor: textColor }]}
+            textStyle={[themedStyles.chipText, { color: textColor }]}
           >
             {rescue.severity}
           </Chip>
-          <Text style={styles.timeStamp}>{rescue.time}</Text>
+          <Text style={themedStyles.timeStamp}>{rescue.time}</Text>
         </View>
       </View>
-
-      <Divider style={styles.cardDivider} />
-
-      <View style={styles.animalInfo}>
-        <Text style={styles.infoSectionTitle}>Animal Information</Text>
-        <View style={styles.infoGrid}>
+      <Divider style={themedStyles.cardDivider} />
+      <View style={themedStyles.animalInfo}>
+        <Text style={themedStyles.infoSectionTitle}>Animal Information</Text>
+        <View style={themedStyles.infoGrid}>
           {[
             { label: "Age", value: rescue.age },
             { label: "Gender", value: rescue.gender },
             { label: "Weight", value: rescue.weight },
             { label: "Species", value: rescue.species },
           ].map(({ label, value }, index) => (
-            <View key={index} style={styles.infoItem}>
-              <Text style={styles.infoLabel}>{`${label}:`}</Text>
-              <Text style={styles.infoValue}>{value}</Text>
+            <View key={index} style={themedStyles.infoItem}>
+              <Text style={themedStyles.infoLabel}>{`${label}:`}</Text>
+              <Text style={themedStyles.infoValue}>{value}</Text>
             </View>
           ))}
         </View>
       </View>
-
-      <View style={styles.medicalInfo}>
-        <Text style={styles.infoSectionTitle}>Medical Status</Text>
-        <Text style={styles.injurySummary}>{rescue.injurySummary}</Text>
-        <View style={styles.symptomsContainer}>
-          <Text style={styles.symptomsTitle}>Symptoms:</Text>
-          <View style={styles.symptomsChips}>
+      <View style={themedStyles.medicalInfo}>
+        <Text style={themedStyles.infoSectionTitle}>Medical Status</Text>
+        <Text style={themedStyles.injurySummary}>{rescue.injurySummary}</Text>
+        <View style={themedStyles.symptomsContainer}>
+          <Text style={themedStyles.symptomsTitle}>Symptoms:</Text>
+          <View style={themedStyles.symptomsChips}>
             {rescue.symptoms.map((symptom, index) => (
               <Chip
                 key={index}
-                style={styles.symptomChip}
-                textStyle={styles.chipText}
+                style={themedStyles.symptomChip}
+                textStyle={themedStyles.chipText}
               >
                 {symptom}
               </Chip>
             ))}
           </View>
         </View>
-        <View style={styles.vitalsContainer}>
-          <Text style={styles.vitalsTitle}>Vital Signs:</Text>
-          <View style={styles.vitalsGrid}>
+        <View style={themedStyles.vitalsContainer}>
+          <Text style={themedStyles.vitalsTitle}>Vital Signs:</Text>
+          <View style={themedStyles.vitalsGrid}>
             {[
               { label: "Temp", value: rescue.vitals.temperature },
               { label: "Heart", value: rescue.vitals.heartRate },
               { label: "Breathing", value: rescue.vitals.breathing },
             ].map(({ label, value }, index) => (
-              <View key={index} style={styles.vitalItem}>
-                <Text style={styles.vitalLabel}>{`${label}:`}</Text>
-                <Text style={styles.vitalValue}>{value}</Text>
+              <View key={index} style={themedStyles.vitalItem}>
+                <Text style={themedStyles.vitalLabel}>{`${label}:`}</Text>
+                <Text style={themedStyles.vitalValue}>{value}</Text>
               </View>
             ))}
           </View>
         </View>
       </View>
-
-      <View style={styles.progressSection}>
-        <Text style={styles.progressTitle}>Rescue Progress</Text>
+      <View style={themedStyles.progressSection}>
+        <Text style={themedStyles.progressTitle}>Rescue Progress</Text>
         <ProgressBar
           progress={rescue.rescueProgress}
           color={color}
-          style={styles.progressBar}
+          style={themedStyles.progressBar}
         />
-        <Text style={styles.progressText}>{`${Math.round(
+        <Text style={themedStyles.progressText}>{`${Math.round(
           rescue.rescueProgress * 100
         )}% Complete`}</Text>
       </View>
-
-      <View style={styles.rescueTeamInfo}>
+      <View style={themedStyles.rescueTeamInfo}>
         {[
           { icon: "business-outline", text: `NGO: ${rescue.ngo}` },
           { icon: "person-outline", text: `Volunteer: ${rescue.volunteer}` },
           { icon: "card-outline", text: `Est. Cost: ${rescue.estimatedCost}` },
         ].map(({ icon, text }, index) => (
-          <View key={index} style={styles.teamItem}>
+          <View key={index} style={themedStyles.teamItem}>
             <Ionicons
-              name={icon as keyof typeof Ionicons.glyphMap}
-              size={SIZES.fontSmall}
-              color={COLORS.subtext}
+              name={icon as any}
+              size={theme.spacing.fontSmall || 14}
+              color={theme.colors.tabInactive}
             />
-            <Text style={styles.teamText}>{text}</Text>
+            <Text style={themedStyles.teamText}>{text}</Text>
           </View>
         ))}
       </View>
-
-      <View style={styles.cardActions}>
+      <View style={themedStyles.cardActions}>
         {[
           {
             icon: "check-circle-outline",
             text: "Mark Helped",
             mode: "contained" as "contained",
-            color: COLORS.low,
+            color: theme.colors.low,
           },
           {
             icon: "alert-circle-outline",
             text: "Report Again",
             mode: "outlined" as "outlined",
-            textColor: COLORS.high,
+            textColor: theme.colors.high,
           },
           {
             icon: "share-outline",
             text: "Share",
             mode: "text" as "text",
-            textColor: COLORS.primary,
+            textColor: theme.colors.primary,
           },
         ].map(({ icon, text, mode, color, textColor }, index) => (
           <Button
             key={index}
             mode={mode}
-            icon={icon}
-            style={styles.actionButton}
+            icon={icon as any}
+            style={themedStyles.actionButton}
             buttonColor={color}
-            textColor={textColor || COLORS.text}
+            textColor={textColor || theme.colors.text}
           >
             {text}
           </Button>
@@ -333,6 +335,8 @@ const RescueCaseCard: React.FC<{ rescue: RescueCase }> = ({ rescue }) => {
 };
 
 export default function UserDashboard() {
+  const { theme } = useThemeContext();
+  const themedStyles = styles(theme);
   const [radius, setRadius] = useState("5 km");
   const [location, setLocation] = useState<Location>({
     city: "New Delhi",
@@ -341,71 +345,71 @@ export default function UserDashboard() {
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 120 }}
+      style={themedStyles.container}
+      contentContainerStyle={{ paddingBottom: theme.spacing.margin * 7.5 }}
     >
       {/* Header */}
       <LinearGradient
-        colors={[COLORS.primary, COLORS.secondary, COLORS.accent]}
+        colors={[theme.colors.tabBackground1, theme.colors.tabBackground2]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={themedStyles.header}
       >
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.greeting}>
-              Good Morning, <Text style={styles.boldText}>Anya</Text>
+        <View style={themedStyles.headerRow}>
+          <View style={themedStyles.headerTextContainer}>
+            <Text style={themedStyles.greeting}>
+              Good Morning, <Text style={themedStyles.boldText}>Sean</Text>
             </Text>
-            <View style={styles.headerSubRow}>
+            <View style={themedStyles.headerSubRow}>
               <Ionicons
                 name="location-outline"
-                size={SIZES.fontSmall}
-                color={COLORS.accent}
-                style={styles.iconSpacing}
+                size={theme.spacing.fontSmall || 14}
+                color={theme.colors.tabInactive}
+                style={themedStyles.iconSpacing}
               />
-              <Text style={styles.subText}>{location.city}</Text>
-              <View style={styles.dot} />
+              <Text style={themedStyles.subText}>{location.city}</Text>
+              <View style={themedStyles.dot} />
               <Ionicons
                 name="time-outline"
-                size={SIZES.fontSmall}
-                color={COLORS.accent}
-                style={styles.iconSpacing}
+                size={theme.spacing.fontSmall || 14}
+                color={theme.colors.tabInactive}
+                style={themedStyles.iconSpacing}
               />
-              <Text style={styles.subText}>{location.time}</Text>
+              <Text style={themedStyles.subText}>{location.time}</Text>
             </View>
           </View>
           <AnimatedTouchable onPress={() => {}}>
-            <View style={styles.headerNotifContainer}>
+            <View style={themedStyles.headerNotifContainer}>
               <Ionicons
                 name="notifications-outline"
                 size={28}
-                color={COLORS.primary}
+                color={theme.colors.tabActive}
               />
-              <Badge style={styles.notifBadge}>2</Badge>
+              <Badge style={themedStyles.notifBadge}>2</Badge>
             </View>
           </AnimatedTouchable>
         </View>
       </LinearGradient>
 
       {/* Radius Control */}
-      <Surface style={styles.radiusSection} elevation={2}>
-        <SectionHeader title="Alert Radius" icon="location-outline" />
-        <Text style={styles.radiusDescription}>
+      <Surface style={themedStyles.radiusSection} elevation={0}>
+        <SectionHeader title="Alert Radius" icon="location-outline" theme={theme} themedStyles={themedStyles} />
+        <Text style={themedStyles.radiusDescription}>
           Set your preferred radius to receive animal rescue alerts
         </Text>
-        <View style={styles.radiusOptionsContainer}>
+        <View style={themedStyles.radiusOptionsContainer}>
           {radiusOptions.map((option) => (
             <AnimatedTouchable key={option} onPress={() => setRadius(option)}>
               <View
                 style={[
-                  styles.radiusOption,
-                  radius === option && styles.radiusOptionSelected,
+                  themedStyles.radiusOption,
+                  radius === option && themedStyles.radiusOptionSelected,
                 ]}
               >
                 <Text
                   style={[
-                    styles.radiusOptionText,
-                    radius === option && styles.radiusOptionTextSelected,
+                    themedStyles.radiusOptionText,
+                    radius === option && themedStyles.radiusOptionTextSelected,
                   ]}
                 >
                   {option}
@@ -414,28 +418,28 @@ export default function UserDashboard() {
             </AnimatedTouchable>
           ))}
         </View>
-        <View style={styles.radiusInfo}>
+        <View style={themedStyles.radiusInfo}>
           <Ionicons
             name="information-circle-outline"
-            size={SIZES.fontSmall}
-            color={COLORS.subtext}
+            size={theme.spacing.fontSmall || 14}
+            color={theme.colors.tabInactive}
           />
-          <Text style={styles.radiusInfoText}>
+          <Text style={themedStyles.radiusInfoText}>
             Currently covering approximately {radius} around your location
           </Text>
         </View>
       </Surface>
 
       {/* Map View */}
-      <Surface style={styles.mapSection} elevation={3}>
-        <View style={styles.mapHeader}>
-          <SectionHeader title="Live Rescue Feed" icon="map-outline" />
-          <Chip icon="refresh" onPress={() => {}} style={styles.refreshChip}>
+      <Surface style={themedStyles.mapSection} elevation={0}>
+        <View style={themedStyles.mapHeader}>
+          <SectionHeader title="Live Rescue Feed" icon="map-outline" theme={theme} themedStyles={themedStyles} />
+          <Chip icon="refresh" onPress={() => {}} style={themedStyles.refreshChip}>
             Refresh
           </Chip>
         </View>
         <MapView
-          style={styles.map}
+          style={themedStyles.map}
           initialRegion={{
             latitude: 28.6139,
             longitude: 77.209,
@@ -443,59 +447,62 @@ export default function UserDashboard() {
             longitudeDelta: 0.1,
           }}
         >
-          {rescueCases.map((rescue) => (
-            <Marker
-              key={rescue.id}
-              coordinate={rescue.location}
-              pinColor={getSeverityStyles(rescue.severity).color}
-              title={rescue.title}
-            >
-              <View
-                style={[
-                  styles.customMarker,
-                  { backgroundColor: getSeverityStyles(rescue.severity).color },
-                ]}
+          {rescueCases.map((rescue) => {
+            const { color, icon, textColor } = getSeverityStyles(rescue.severity, theme);
+            return (
+              <Marker
+                key={rescue.id}
+                coordinate={rescue.location}
+                pinColor={color}
+                title={rescue.title}
               >
-                <Ionicons
-                  iconname={getSeverityStyles(rescue.severity).icon}
-                  size={20}
-                  color="#fff"
-                />
-              </View>
-            </Marker>
-          ))}
+                <View
+                  style={[
+                    themedStyles.customMarker,
+                    { backgroundColor: color },
+                  ]}
+                >
+                  <Ionicons
+                    name={icon as any}
+                    size={16}
+                    color={textColor}
+                  />
+                </View>
+              </Marker>
+            );
+          })}
         </MapView>
       </Surface>
 
       {/* Rescue Cases */}
-      <View style={styles.casesSection}>
-        <SectionHeader title="Nearby Rescue Cases" icon="heart-outline" />
+      <View style={themedStyles.casesSection}>
+        <SectionHeader title="Nearby Rescue Cases" icon="heart-outline" theme={theme} themedStyles={themedStyles} />
         {rescueCases.map((rescue) => (
-          <RescueCaseCard key={rescue.id} rescue={rescue} />
+          <RescueCaseCard key={rescue.id} rescue={rescue} theme={theme} themedStyles={themedStyles} />
         ))}
       </View>
 
       {/* Status Updates */}
-      <Surface style={styles.statusSection} elevation={2}>
-        <SectionHeader title="Your Reports" icon="list-outline" />
-        <Card style={styles.statusCard} elevation={1}>
+      <Surface style={themedStyles.statusSection} elevation={0}>
+        <SectionHeader title="Your Reports" icon="list-outline" theme={theme} themedStyles={themedStyles} />
+        <Card style={themedStyles.statusCard} elevation={0}>
           <Card.Content>
             {[
               {
                 title: "Injured Cow Near Red Fort",
                 description: "NGO: Animal Aid • Status: In Progress",
                 icon: "alert",
-                iconColor: COLORS.high,
+                iconColor: theme.colors.high,
                 badge: "Active",
-                badgeColor: COLORS.low,
+                badgeColor: theme.colors.low,
               },
               {
                 title: "Stray Pup with Broken Leg",
                 description: "NGO: Awaiting Response • Status: Reported",
                 icon: "paw",
-                iconColor: COLORS.primary,
+                iconColor: theme.colors.primary,
                 badge: "Pending",
-                badgeColor: COLORS.moderate,
+                badgeColor: theme.colors.moderate,
               },
             ].map(
               (
@@ -507,13 +514,13 @@ export default function UserDashboard() {
                     title={title}
                     description={description}
                     left={(props) => (
-                      <List.Icon {...props} icon={icon} color={iconColor} />
+                      <List.Icon {...props} icon={icon as any} color={iconColor} />
                     )}
                     right={() => (
-                      <View style={styles.statusRight}>
+                      <View style={themedStyles.statusRight}>
                         <Badge
                           style={[
-                            styles.statusBadge,
+                            themedStyles.statusBadge,
                             { backgroundColor: badgeColor },
                           ]}
                         >
@@ -534,19 +541,15 @@ export default function UserDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const styles = (theme: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     paddingTop: 40,
-    paddingBottom: SIZES.padding,
-    paddingHorizontal: SIZES.padding,
-    borderBottomLeftRadius: SIZES.radius,
-    borderBottomRightRadius: SIZES.radius,
-    elevation: 6,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    paddingBottom: theme.spacing.padding,
+    paddingHorizontal: theme.spacing.padding,
+    borderBottomLeftRadius: theme.spacing.radius,
+    borderBottomRightRadius: theme.spacing.radius,
+    backgroundColor: theme.colors.tabBackground1,
   },
   headerRow: {
     flexDirection: "row",
@@ -555,24 +558,23 @@ const styles = StyleSheet.create({
   },
   headerTextContainer: { flex: 1 },
   greeting: {
-    fontSize: SIZES.fontLarge + 10,
-    color: "#fff",
-    fontFamily: "cursive",
+    fontSize: (theme.spacing.fontLarge ? theme.spacing.fontLarge + 6 : 26),
+    color: theme.colors.text,
+    fontWeight: "600",
+    marginBottom: 2,
   },
-  boldText: { fontWeight: "bold", fontFamily: "cursive" },
-
-
+  boldText: { fontWeight: "bold", fontSize: (theme.spacing.fontLarge ? theme.spacing.fontLarge + 10 : 30), color: theme.colors.text },
   headerSubRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   subText: {
-    fontSize: SIZES.fontSmall,
-    color: COLORS.accent,
-    fontWeight: "600",
+    fontSize: 14,
+    color: theme.colors.tabInactive,
+    fontWeight: "500",
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.primary,
+    backgroundColor: theme.colors.tabActive,
     marginHorizontal: 8,
   },
   iconSpacing: { marginHorizontal: 4 },
@@ -580,192 +582,210 @@ const styles = StyleSheet.create({
     position: "relative",
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: theme.colors.card,
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
   notifBadge: {
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: COLORS.critical,
-    color: "#fff",
-    fontSize: SIZES.fontTiny,
+    backgroundColor: theme.colors.critical,
+    color: theme.colors.text,
+    fontSize: 12,
     paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.card,
   },
   radiusSection: {
-    margin: SIZES.margin,
-    padding: SIZES.padding,
-    borderRadius: SIZES.radius,
-    backgroundColor: COLORS.card,
+    margin: theme.spacing.margin,
+    padding: theme.spacing.padding,
+    borderRadius: theme.spacing.radius,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: SIZES.fontLarge,
+    fontSize: 16,
     fontWeight: "bold",
-    color: COLORS.primary,
+    color: theme.colors.tabActive,
   },
   sectionIcon: { marginRight: 8 },
   radiusDescription: {
-    fontSize: SIZES.fontSmall,
-    color: COLORS.subtext,
-    marginBottom: 12,
+    fontSize: 14,
+    color: theme.colors.tabInactive,
+    marginBottom: 10,
   },
   radiusOptionsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   radiusOption: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: SIZES.radius,
-    backgroundColor: "#F5F5F5",
+    borderRadius: theme.spacing.radius,
+    backgroundColor: theme.colors.tabBackground2,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: theme.colors.tabBackground2,
   },
   radiusOptionSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: theme.colors.tabActive,
+    borderColor: theme.colors.tabActive,
   },
   radiusOptionText: {
-    fontSize: SIZES.fontSmall,
-    color: COLORS.subtext,
+    fontSize: 14,
+    color: theme.colors.tabInactive,
     fontWeight: "500",
   },
-  radiusOptionTextSelected: { color: "#fff" },
+  radiusOptionTextSelected: { color: theme.colors.card },
   radiusInfo: { flexDirection: "row", alignItems: "center", gap: 8 },
-  radiusInfoText: { fontSize: SIZES.fontTiny, color: COLORS.subtext, flex: 1 },
+  radiusInfoText: { fontSize: 12, color: theme.colors.tabInactive, flex: 1 },
   mapSection: {
-    margin: SIZES.margin,
-    borderRadius: SIZES.radius,
+    margin: theme.spacing.margin,
+    borderRadius: theme.spacing.radius,
     overflow: "hidden",
-    backgroundColor: COLORS.card,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
   mapHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: SIZES.padding,
+    padding: theme.spacing.padding,
     paddingBottom: 8,
   },
-  map: { width: "100%", height: 220 },
+  map: { width: "100%", height: 200 },
   customMarker: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
+    borderWidth: 1,
+    borderColor: theme.colors.card,
+    backgroundColor: theme.colors.tabBackground2,
   },
-  refreshChip: { backgroundColor: COLORS.accent },
-  casesSection: { paddingHorizontal: SIZES.margin },
+  refreshChip: { backgroundColor: theme.colors.tabBackground2, borderWidth: 1, borderColor: theme.colors.tabActive },
+  casesSection: { paddingHorizontal: theme.spacing.margin },
   card: {
-    backgroundColor: COLORS.card,
-    marginBottom: SIZES.margin,
-    borderRadius: SIZES.radius,
+    backgroundColor: theme.colors.card,
+    marginBottom: theme.spacing.margin,
+    borderRadius: theme.spacing.radius,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
     overflow: "hidden",
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    padding: SIZES.padding,
+    padding: theme.spacing.padding,
+    paddingBottom: 0,
   },
   cardHeaderLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  animalImage: { width: 50, height: 50, borderRadius: 25, marginRight: 12 },
+  animalImage: { width: 44, height: 44, borderRadius: 22, marginRight: 10 },
   cardHeaderText: { flex: 1 },
   cardTitle: {
-    fontSize: SIZES.fontMedium,
+    fontSize: 16,
     fontWeight: "bold",
-    color: COLORS.text,
+    color: theme.colors.text,
   },
   cardSubtitle: {
-    fontSize: SIZES.fontSmall,
-    color: COLORS.subtext,
+    fontSize: 14,
+    color: theme.colors.tabInactive,
     marginTop: 2,
   },
   cardHeaderRight: { alignItems: "flex-end" },
-  severityChip: { marginBottom: 4 },
-  chipText: { color: "#fff", fontSize: SIZES.fontTiny },
-  timeStamp: { fontSize: SIZES.fontTiny, color: COLORS.subtext },
-  cardDivider: { marginHorizontal: SIZES.padding },
-  animalInfo: { padding: SIZES.padding, paddingBottom: 8 },
+  severityChip: { marginBottom: 4, borderRadius: 8 },
+  chipText: { fontSize: 12, fontWeight: "bold" },
+  timeStamp: { fontSize: 12, color: theme.colors.tabInactive },
+  cardDivider: { marginHorizontal: theme.spacing.padding },
+  animalInfo: { padding: theme.spacing.padding, paddingBottom: 8 },
   infoSectionTitle: {
-    fontSize: SIZES.fontSmall,
+    fontSize: 14,
     fontWeight: "bold",
-    color: COLORS.primary,
+    color: theme.colors.tabActive,
     marginBottom: 8,
   },
   infoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   infoItem: { flex: 1, minWidth: "45%" },
-  infoLabel: { fontSize: SIZES.fontTiny, color: COLORS.subtext },
+  infoLabel: { fontSize: 12, color: theme.colors.tabInactive },
   infoValue: {
-    fontSize: SIZES.fontSmall,
+    fontSize: 14,
     fontWeight: "500",
-    color: COLORS.text,
+    color: theme.colors.text,
   },
-  medicalInfo: { padding: SIZES.padding, paddingTop: 8 },
+  medicalInfo: { padding: theme.spacing.padding, paddingTop: 8 },
   injurySummary: {
-    fontSize: SIZES.fontSmall,
-    color: COLORS.text,
-    marginBottom: 12,
-    lineHeight: 20,
+    fontSize: 14,
+    color: theme.colors.text,
+    marginBottom: 10,
+    lineHeight: 18,
   },
-  symptomsContainer: { marginBottom: 12 },
+  symptomsContainer: { marginBottom: 10 },
   symptomsTitle: {
-    fontSize: SIZES.fontTiny,
-    color: COLORS.subtext,
-    marginBottom: 6,
+    fontSize: 12,
+    color: theme.colors.tabInactive,
+    marginBottom: 4,
   },
-  symptomsChips: { flexDirection: "row", flexWrap: "wrap", gap: 4},
-  symptomChip: { backgroundColor: "#ff6868ff" },
+  symptomsChips: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
+  symptomChip: { backgroundColor: theme.colors.critical },
   vitalsContainer: { marginBottom: 8 },
   vitalsTitle: {
-    fontSize: SIZES.fontTiny,
-    color: COLORS.subtext,
-    marginBottom: 6,
+    fontSize: 12,
+    color: theme.colors.tabInactive,
+    marginBottom: 4,
   },
-  vitalsGrid: { flexDirection: "row", gap: 16 },
+  vitalsGrid: { flexDirection: "row", gap: 12 },
   vitalItem: { flex: 1 },
-  vitalLabel: { fontSize: SIZES.fontTiny, color: COLORS.subtext },
+  vitalLabel: { fontSize: 12, color: theme.colors.tabInactive },
   vitalValue: {
-    fontSize: SIZES.fontSmall,
+    fontSize: 14,
     fontWeight: "500",
-    color: COLORS.text,
+    color: theme.colors.text,
   },
-  progressSection: { padding: SIZES.padding, paddingTop: 8 },
+  progressSection: { padding: theme.spacing.padding, paddingTop: 8 },
   progressTitle: {
-    fontSize: SIZES.fontTiny,
-    color: COLORS.subtext,
-    marginBottom: 6,
+    fontSize: 12,
+    color: theme.colors.tabInactive,
+    marginBottom: 4,
   },
-  progressBar: { height: 6, borderRadius: 3, marginBottom: 4 },
+  progressBar: { height: 4, borderRadius: 2, marginBottom: 2 },
   progressText: {
-    fontSize: SIZES.fontTiny,
-    color: COLORS.subtext,
+    fontSize: 12,
+    color: theme.colors.tabInactive,
     textAlign: "right",
   },
-  rescueTeamInfo: { padding: SIZES.padding, paddingTop: 8, gap: 8 },
-  teamItem: { flexDirection: "row", alignItems: "center", gap: 8 },
-  teamText: { fontSize: SIZES.fontSmall, color: COLORS.text },
+  rescueTeamInfo: { padding: theme.spacing.padding, paddingTop: 8, gap: 6 },
+  teamItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  teamText: { fontSize: 14, color: theme.colors.text },
   cardActions: {
     flexDirection: "row",
     gap: 8,
-    padding: SIZES.padding,
+    padding: theme.spacing.padding,
     paddingTop: 8,
   },
   actionButton: { flex: 1 },
   statusSection: {
-    margin: SIZES.margin,
-    padding: SIZES.padding,
-    borderRadius: SIZES.radius,
-    backgroundColor: COLORS.card,
+    margin: theme.spacing.margin,
+    padding: theme.spacing.padding,
+    borderRadius: theme.spacing.radius,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
-  statusCard: { backgroundColor: COLORS.accent, borderRadius: 12 },
+  statusCard: { backgroundColor: theme.colors.tabBackground2, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.tabBackground2 },
   statusRight: { flexDirection: "row", alignItems: "center" },
-  statusBadge: { backgroundColor: COLORS.low, color: "#fff", marginRight: 8 },
+  statusBadge: { backgroundColor: theme.colors.low, color: theme.colors.text, marginRight: 8, borderRadius: 8 },
 });
