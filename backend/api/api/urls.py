@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,4 +25,11 @@ urlpatterns = [
     path('user/', include('user.urls')),
 
     path('silk/', include('silk.urls', namespace='silk')),
+]
+
+def health_check(request):
+    return JsonResponse({"status": "ok"}, status=200)
+
+urlpatterns += [
+    path('health/', health_check, name='health-check'),
 ]

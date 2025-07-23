@@ -13,6 +13,10 @@ from reports.serializers import InjuryReportSerializer
 from user.models import VolunteerApplication
 from notifications.utils import send_and_log_notification
 from notifications.notification_triggers import notification_triggers
+from utils.logger import (
+    ngo_logger, log_api_request, log_ngo_activity, 
+    log_error_with_context
+)
 
 
 class NGOSearchPagination(PageNumberPagination):
@@ -39,6 +43,7 @@ class NGOViewSet(viewsets.ModelViewSet):
     filter_backends = [SearchFilter]
     search_fields = ['name', 'description', 'category', 'location']
 
+    @log_api_request(ngo_logger)
     def create(self, request, *args, **kwargs):
         """Register a new NGO"""
         user_id = getattr(request, 'user_id', None)
@@ -59,12 +64,20 @@ class NGOViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(data=data)
         if serializer.is_valid():
-            serializer.save()
+            ngo = serializer.save()
+            
+            log_ngo_activity(str(ngo.ngo_id), 'registered', {
+                'user_id': user_id,
+                'name': ngo.name,
+                'category': ngo.category
+            })
+            
             return Response({
                 "message": "NGO registered successfully",
                 "ngo_id": serializer.instance.ngo_id
             }, status=status.HTTP_201_CREATED)
         else:
+            ngo_logger.warning(f"NGO registration validation failed: user_id={user_id}, errors={serializer.errors}")
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
@@ -79,6 +92,7 @@ class NGOViewSet(viewsets.ModelViewSet):
         return super().retrieve(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'], url_path='accept-report')
+    @log_api_request(ngo_logger)
     def accept_report(self, request, ngo_id=None):
         """Accept a report by NGO"""
         try:
@@ -121,6 +135,12 @@ class NGOViewSet(viewsets.ModelViewSet):
             # Notify both NGO and user about report assignment
             notification_triggers.notify_report_assigned_to_ngo(report, ngo)
 
+            log_ngo_activity(str(ngo.ngo_id), 'report_accepted', {
+                'report_id': str(report.report_id),
+                'ngo_location': {'lat': lat, 'lon': lon},
+                'report_location': {'lat': report.latitude, 'lon': report.longitude}
+            })
+
             return Response({
                 "message": "Report accepted successfully",
                 "report_id": report_id,
@@ -137,15 +157,23 @@ class NGOViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
         except InjuryReport.DoesNotExist:
+            ngo_logger.warning(f"Report not found for NGO acceptance: report_id={report_id}, ngo_id={ngo_id}")
             return Response({
                 "error": "Report not found"
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            log_error_with_context(ngo_logger, e, {
+                'action': 'accept_report',
+                'ngo_id': ngo_id,
+                'report_id': report_id,
+                'user_id': request.user_id
+            })
             return Response({
                 "error": "Internal server error"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['get'], url_path='assigned-reports')
+    @log_api_request(ngo_logger)
     def assigned_reports(self, request, ngo_id=None):
         """Get all reports assigned to this NGO"""
         try:
@@ -157,14 +185,18 @@ class NGOViewSet(viewsets.ModelViewSet):
 
             reports = InjuryReport.objects.filter(ngo_assigned_id=request.user_id)
             serializer = InjuryReportSerializer(reports, many=True)
+            
+            ngo_logger.info(f"NGO assigned reports query: ngo_id={ngo_id}, user_id={request.user_id}, found={len(reports)} reports")
             return Response(serializer.data)
 
         except NGO.DoesNotExist:
+            ngo_logger.warning(f"NGO not found for assigned reports: ngo_id={ngo_id}, user_id={request.user_id}")
             return Response({
                 "error": "NGO not found"
             }, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['get'], url_path='dashboard-stats')
+    @log_api_request(ngo_logger)
     def dashboard_stats(self, request, ngo_id=None):
         """Get dashboard statistics for NGO"""
         try:
@@ -185,13 +217,17 @@ class NGOViewSet(viewsets.ModelViewSet):
                 status='resolved'
             ).count()
 
-            return Response({
+            stats = {
                 "total_reports": total,
                 "in_progress": in_progress,
                 "resolved": resolved,
-            })
+            }
+            
+            ngo_logger.info(f"NGO dashboard stats: ngo_id={ngo_id}, user_id={user_id}, stats={stats}")
+            return Response(stats)
 
         except NGO.DoesNotExist:
+            ngo_logger.warning(f"NGO not found for dashboard stats: ngo_id={ngo_id}, user_id={request.user_id}")
             return Response({
                 "error": "NGO not found"
             }, status=status.HTTP_404_NOT_FOUND)
