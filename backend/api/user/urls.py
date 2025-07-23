@@ -1,14 +1,12 @@
-from django.urls import path
-from .views import (
-    UserOwnReportsView,
-    UserHelpedReportsView, 
-    ToggleVolunteerView,
-    ApplyVolunteerView,
-)
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import UserReportViewSet, UserProfileViewSet, VolunteerApplicationViewSet
+
+router = DefaultRouter()
+router.register(r'reports', UserReportViewSet, basename='user-reports')
+router.register(r'profile', UserProfileViewSet, basename='user-profile')
+router.register(r'volunteer-applications', VolunteerApplicationViewSet, basename='volunteer-applications')
 
 urlpatterns = [
-    path('my-reports/', UserOwnReportsView.as_view(), name='user_own_reports'),
-    path('helped-reports/', UserHelpedReportsView.as_view(), name='user_helped_reports'),
-    path('toggle-volunteer/', ToggleVolunteerView.as_view(), name='toggle_volunteer'),
-    path('str:ngo_id>/apply/', ApplyVolunteerView.as_view(), name='apply-volunteer'),
+    path('', include(router.urls)),
 ]

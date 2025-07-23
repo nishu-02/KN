@@ -22,4 +22,6 @@ urlpatterns = [
     path('reports/', include('reports.urls')),
     path('ngo/', include('ngo.urls')),
     path('user/', include('user.urls')),
+
+    path('silk/', include('silk.urls', namespace='silk')),
 ]
