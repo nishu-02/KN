@@ -5,12 +5,12 @@ export const lightTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#6D4C41',
+    primary: '#8b4513',
     secondary: '#BCAAA4',
     background: '#F5F5F5',
     card: '#FFFFFF',
-    text: '#222',
-    subtext: '#888',
+    text: '#222222',
+    subtext: '#888888',
     critical: '#FFCDD2',
     high: '#FFE0B2',
     moderate: '#FFF9C4',
@@ -21,7 +21,7 @@ export const lightTheme = {
     notification: '#FF7043', // required for navigation
     // UserBottomTabs palette
     tabBackground1: '#F5F5DC',
-    tabBackground2: '#DEB887',
+    tabBackground2: '#ffffff',
     tabBackground3: '#D2B48C',
     tabBackground4: '#CD853F',
     tabActive: '#8B4513',
@@ -65,7 +65,7 @@ export const darkTheme = {
     notification: '#FFAB91', // required for navigation
     // UserBottomTabs palette (dark variants)
     tabBackground1: '#23231A',
-    tabBackground2: '#6D4C41',
+    tabBackground2: '#23231a',
     tabBackground3: '#8B6F4E',
     tabBackground4: '#654321',
     tabActive: '#F5F5DC',

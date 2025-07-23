@@ -12,7 +12,7 @@ export async function savePushToken(userId: string, token: string) {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to save push token');
+      throw console.error('Failed to save push token');
     }
     return await response.json();
   } catch (error) {
