@@ -21,7 +21,8 @@ import {
 } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import MapView, { Marker } from "react-native-maps";
+import * as Location from 'expo-location';
+import MapView, { Marker, Circle } from "react-native-maps";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -290,7 +291,7 @@ const RescueCaseCard: React.FC<{ rescue: RescueCase; theme: any; themedStyles: a
           <View key={index} style={themedStyles.teamItem}>
             <Ionicons
               name={icon as any}
-              size={theme.spacing.fontSmall || 14}
+              size={14}
               color={theme.colors.tabInactive}
             />
             <Text style={themedStyles.teamText}>{text}</Text>
@@ -338,10 +339,27 @@ export default function UserDashboard() {
   const { theme } = useThemeContext();
   const themedStyles = styles(theme);
   const [radius, setRadius] = useState("5 km");
-  const [location, setLocation] = useState<Location>({
-    city: "New Delhi",
-    time: "8:35 AM",
-  });
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
+
+  React.useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status);
+      if (status === 'granted') {
+        let loc = await Location.getCurrentPositionAsync({});
+        setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      }
+    })();
+  }, []);
+
+  // Convert radius string to meters
+  const getRadiusMeters = (radiusStr: string) => {
+    const num = parseFloat(radiusStr);
+    if (radiusStr.includes('km')) return num * 1000;
+    if (radiusStr.includes('m')) return num;
+    return 5000; // default 5km
+  };
 
   return (
     <ScrollView
@@ -363,19 +381,19 @@ export default function UserDashboard() {
             <View style={themedStyles.headerSubRow}>
               <Ionicons
                 name="location-outline"
-                size={theme.spacing.fontSmall || 14}
+                size={14}
                 color={theme.colors.tabInactive}
                 style={themedStyles.iconSpacing}
               />
-              <Text style={themedStyles.subText}>{location.city}</Text>
+              <Text style={themedStyles.subText}>{locationPermission === 'granted' ? userLocation?.latitude && userLocation?.longitude ? `${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}` : "Loading..." : "Location Permission Denied"}</Text>
               <View style={themedStyles.dot} />
               <Ionicons
                 name="time-outline"
-                size={theme.spacing.fontSmall || 14}
+                size={14}
                 color={theme.colors.tabInactive}
                 style={themedStyles.iconSpacing}
               />
-              <Text style={themedStyles.subText}>{location.time}</Text>
+              <Text style={themedStyles.subText}>{locationPermission === 'granted' ? userLocation?.latitude && userLocation?.longitude ? new Date().toLocaleTimeString() : "Loading..." : "Location Permission Denied"}</Text>
             </View>
           </View>
           <AnimatedTouchable onPress={() => {}}>
@@ -421,7 +439,7 @@ export default function UserDashboard() {
         <View style={themedStyles.radiusInfo}>
           <Ionicons
             name="information-circle-outline"
-            size={theme.spacing.fontSmall || 14}
+            size={14}
             color={theme.colors.tabInactive}
           />
           <Text style={themedStyles.radiusInfoText}>
@@ -441,12 +459,35 @@ export default function UserDashboard() {
         <MapView
           style={themedStyles.map}
           initialRegion={{
-            latitude: 28.6139,
-            longitude: 77.209,
+            latitude: userLocation?.latitude || 28.6139,
+            longitude: userLocation?.longitude || 77.209,
             latitudeDelta: 0.1,
             longitudeDelta: 0.1,
           }}
+          region={userLocation ? {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          } : undefined}
+          showsUserLocation={!!userLocation}
         >
+          {/* User location pin and radius */}
+          {userLocation && (
+            <>
+              <Marker
+                coordinate={userLocation}
+                title="You are here"
+                pinColor={theme.colors.primary}
+              />
+              <Circle
+                center={userLocation}
+                radius={getRadiusMeters(radius)}
+                strokeColor={theme.colors.primary}
+                fillColor={theme.colors.primary + '22'}
+              />
+            </>
+          )}
           {rescueCases.map((rescue) => {
             const { color, icon, textColor } = getSeverityStyles(rescue.severity, theme);
             return (
