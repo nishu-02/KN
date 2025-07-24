@@ -25,6 +25,12 @@
     "plugins": [
       "expo-router",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fb1290ad-0546-493d-a247-1fd3205e7f99"
+      }
+    }
   }
 }

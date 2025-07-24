@@ -27,6 +27,7 @@ import { registerForPushNotificationsAsync } from "./PushTokenRegister";
 // import CameraScreen from "./screens/user/camera/CameraScreen";
 import UploadRescueScreen from "./screens/user/camera/UploadRescueScreen";
 import SplashScreen from "./screens/user/SplashScreen";
+import SettingsScreen from './screens/user/SettingsScreen';
 
 import UserBottomTabs from "./screens/navigation/UserBottomTabs";
 import { ThemeContext, lightTheme, darkTheme } from "./theme";
@@ -159,6 +160,7 @@ function RootNavigator() {
             />
            <Stack.Screen name="BottomTabs" component={UserBottomTabs} />
       <Stack.Screen name="UploadRescue" component={UploadRescueScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
           </>
         )}
       </Stack.Navigator>

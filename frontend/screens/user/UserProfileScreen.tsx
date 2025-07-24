@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  Share,
+  Modal,
+  Linking,
 } from "react-native";
 import {
   Text,
@@ -26,6 +29,9 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeContext } from '../../theme';
+import { TabView, SceneMap, TabBar, TabBarProps } from 'react-native-tab-view';
+import SettingsScreen from './SettingsScreen';
+import { useNavigation } from '@react-navigation/native';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -251,6 +257,8 @@ export default function UserProfileScreen() {
     goals: true,
     categories: true,
   });
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const navigation = useNavigation();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const avatarScale = useRef(new Animated.Value(1)).current;
@@ -397,6 +405,27 @@ export default function UserProfileScreen() {
 
   const themedStyles = styles(theme);
 
+  // Handler for sharing profile
+  const handleShareProfile = async () => {
+    try {
+      const profileLink = `https://karunanidhan.org/certificate/${encodeURIComponent(userProfile.name.replace(/\s+/g, '-').toLowerCase())}`;
+      const message = `🐾 Animal Rescue Certificate 🐾\n\nThis certifies that ${userProfile.name} (${userProfile.title}) has made a significant impact in animal rescue.\n\nLocation: ${userProfile.location}\nKarma Points: 850\nAnimals Saved: ${rescueStats.totalRescues}\nSuccess Rate: ${rescueStats.successRate}%\nReferral Code: GOODBOY497\n\nView certificate: ${profileLink}`;
+      await Share.share({ message, url: profileLink });
+    } catch (error) {
+      // Optionally handle error
+    }
+  };
+
+  // Handler for edit profile
+  const handleEditProfile = () => {
+    setEditModalVisible(true);
+  };
+
+  // Handler for settings
+  const handleSettings = () => {
+    navigation.navigate('Settings');
+  };
+
   return (
     <ScrollView
       style={themedStyles.container}
@@ -443,16 +472,16 @@ export default function UserProfileScreen() {
             </View>
           </ImageBackground>
           <View style={themedStyles.profileActions}>
-            {["create-outline", "share-outline", "settings-outline"].map(
-              (icon, index) => (
-                <TouchableOpacity key={index} style={themedStyles.actionButton}>
-                  <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={theme.colors.primary} />
-                  <Text style={themedStyles.actionText}>
-                    {["Edit", "Share", "Settings"][index]}
-                  </Text>
-                </TouchableOpacity>
-              )
-            )}
+            {[
+              { icon: "create-outline", label: "Edit", onPress: handleEditProfile },
+              { icon: "share-outline", label: "Share", onPress: handleShareProfile },
+              { icon: "settings-outline", label: "Settings", onPress: handleSettings },
+            ].map(({ icon, label, onPress }, index) => (
+              <TouchableOpacity key={index} style={themedStyles.actionButton} onPress={onPress}>
+                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={theme.colors.primary} />
+                <Text style={themedStyles.actionText}>{label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       </Animated.View>
@@ -709,111 +738,6 @@ export default function UserProfileScreen() {
         />
       </SectionCard>
 
-      {/* Preferences & Settings */}
-      <SectionCard
-        title="Preferences & Settings"
-        icon="cog"
-        iconColor={theme.colors.primary}
-        expanded={expandedSections.settings}
-        toggle={() => toggleSection("settings")}
-        fadeAnim={fadeAnim}
-        themedStyles={themedStyles}
-      >
-        <View style={themedStyles.settingSection}>
-          <Text style={[themedStyles.settingSectionTitle, { color: theme.colors.text }]}>Notification Settings</Text>
-          {[
-            {
-              icon: "notifications-outline",
-              label: "Auto-Accept Rescues",
-              value: autoAcceptRescues,
-              onChange: setAutoAcceptRescues,
-              thumbColor: "#8B4513",
-            },
-            {
-              icon: "alert-circle-outline",
-              label: "Emergency Mode",
-              value: emergencyMode,
-              onChange: setEmergencyMode,
-              thumbColor: "#FF4444",
-            },
-            {
-              icon: "eye-off-outline",
-              label: "Privacy Mode",
-              value: isPrivate,
-              onChange: setIsPrivate,
-              thumbColor: "#8B4513",
-            },
-          ].map(({ icon, label, value, onChange, thumbColor }, index) => (
-            <View key={index} style={themedStyles.settingRow}>
-              <View style={themedStyles.settingLeft}>
-                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={thumbColor} />
-                <Text style={themedStyles.settingLabel}>{label}</Text>
-              </View>
-              <Switch
-                value={value}
-                onValueChange={onChange}
-                thumbColor={value ? thumbColor : "#f4f3f4"}
-              />
-            </View>
-          ))}
-        </View>
-        <Divider style={themedStyles.settingDivider} />
-        <View style={themedStyles.settingSection}>
-          <Text style={[themedStyles.settingSectionTitle, { color: theme.colors.text }]}>Range & Language</Text>
-          {[
-            {
-              icon: "location-outline",
-              label: "Notification Range",
-              value: notificationRange,
-              onChange: setNotificationRange,
-              buttons: [
-                { value: "5", label: "5 km" },
-                { value: "25", label: "25 km" },
-                { value: "50", label: "50 km" },
-              ],
-            },
-            {
-              icon: "language-outline",
-              label: "Preferred Language",
-              value: language,
-              onChange: setLanguage,
-              buttons: [
-                { value: "english", label: "English" },
-                { value: "hindi", label: "Hindi" },
-              ],
-            },
-          ].map(({ icon, label, value, onChange, buttons }, index) => (
-            <View key={index} style={themedStyles.settingRowVertical}>
-              <View style={themedStyles.settingLeft}>
-                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#8B4513" />
-                <Text style={themedStyles.settingLabel}>{label}</Text>
-              </View>
-              <SegmentedButtons
-                value={value}
-                onValueChange={onChange}
-                buttons={buttons}
-                style={themedStyles.segmentedButtons}
-              />
-            </View>
-          ))}
-        </View>
-        <Divider style={themedStyles.settingDivider} />
-        <View style={themedStyles.settingSection}>
-          <Text style={[themedStyles.settingSectionTitle, { color: theme.colors.text }]}>Appearance</Text>
-          <View style={themedStyles.settingRow}>
-            <View style={themedStyles.settingLeft}>
-              <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={theme.colors.primary} />
-              <Text style={themedStyles.settingLabel}>{isDark ? "Dark Mode" : "Light Mode"}</Text>
-            </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              thumbColor={isDark ? theme.colors.primary : theme.colors.accent}
-            />
-          </View>
-        </View>
-      </SectionCard>
-
       {/* Emergency Contact */}
       <SectionCard
         title="Emergency Contact"
@@ -909,6 +833,21 @@ export default function UserProfileScreen() {
           </Button>
         </View>
       </SectionCard>
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>Edit Profile (Demo)</Text>
+            {/* Add your edit profile form here */}
+            <Button mode="contained" onPress={() => setEditModalVisible(false)} style={{ marginTop: 16 }}>Close</Button>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -940,7 +879,7 @@ const styles = (theme: any) => StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-evenly",
     backgroundColor: theme.colors.card,
-    paddingVertical: 12,
+    paddingVertical: 10,
     marginTop: -20,
     marginHorizontal: theme.spacing.margin,
     borderRadius: theme.spacing.radius,

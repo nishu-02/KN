@@ -450,25 +450,25 @@ export default function UserDashboard() {
           {rescueCases.map((rescue) => {
             const { color, icon, textColor } = getSeverityStyles(rescue.severity, theme);
             return (
-              <Marker
-                key={rescue.id}
-                coordinate={rescue.location}
+            <Marker
+              key={rescue.id}
+              coordinate={rescue.location}
                 pinColor={color}
-                title={rescue.title}
-              >
-                <View
-                  style={[
+              title={rescue.title}
+            >
+              <View
+                style={[
                     themedStyles.customMarker,
                     { backgroundColor: color },
-                  ]}
-                >
-                  <Ionicons
+                ]}
+              >
+                <Ionicons
                     name={icon as any}
-                    size={16}
+                  size={16}
                     color={textColor}
-                  />
-                </View>
-              </Marker>
+                />
+              </View>
+            </Marker>
             );
           })}
         </MapView>
