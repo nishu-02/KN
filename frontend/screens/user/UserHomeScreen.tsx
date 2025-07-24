@@ -6,6 +6,7 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import {
   Text,
@@ -341,17 +342,57 @@ export default function UserDashboard() {
   const [radius, setRadius] = useState("5 km");
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
+  const [address, setAddress] = useState<string>("Locating...");
+  const [currentTime, setCurrentTime] = useState<string>(new Date().toLocaleTimeString());
+  const [refreshing, setRefreshing] = useState(false);
 
-  React.useEffect(() => {
-    (async () => {
+  // Fetch location and address (non-blocking, update UI when ready)
+  const fetchLocationAndAddress = async () => {
+    try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       setLocationPermission(status);
       if (status === 'granted') {
         let loc = await Location.getCurrentPositionAsync({});
         setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        let geo = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        if (geo && geo.length > 0) {
+          const g = geo[0];
+          const addr = [g.name, g.street, g.district, g.city, g.region].filter(Boolean).join(', ');
+          setAddress(addr);
+        } else {
+          setAddress("Unknown location");
+        }
+      } else {
+        setAddress("Location Permission Denied");
       }
-    })();
+    } catch (e) {
+      setAddress("Location Error");
+    }
+  };
+
+  React.useEffect(() => {
+    fetchLocationAndAddress();
   }, []);
+
+  // Real-time clock
+  React.useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Pull-to-refresh handler with max timeout
+  const onRefresh = async () => {
+    setRefreshing(true);
+    let finished = false;
+    const timeout = setTimeout(() => {
+      if (!finished) setRefreshing(false);
+    }, 2000);
+    await fetchLocationAndAddress();
+    setCurrentTime(new Date().toLocaleTimeString());
+    finished = true;
+    setRefreshing(false);
+    clearTimeout(timeout);
+  };
 
   // Convert radius string to meters
   const getRadiusMeters = (radiusStr: string) => {
@@ -365,6 +406,7 @@ export default function UserDashboard() {
     <ScrollView
       style={themedStyles.container}
       contentContainerStyle={{ paddingBottom: theme.spacing.margin * 7.5 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Header */}
       <LinearGradient
@@ -385,15 +427,7 @@ export default function UserDashboard() {
                 color={theme.colors.tabInactive}
                 style={themedStyles.iconSpacing}
               />
-              <Text style={themedStyles.subText}>{locationPermission === 'granted' ? userLocation?.latitude && userLocation?.longitude ? `${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}` : "Loading..." : "Location Permission Denied"}</Text>
-              <View style={themedStyles.dot} />
-              <Ionicons
-                name="time-outline"
-                size={14}
-                color={theme.colors.tabInactive}
-                style={themedStyles.iconSpacing}
-              />
-              <Text style={themedStyles.subText}>{locationPermission === 'granted' ? userLocation?.latitude && userLocation?.longitude ? new Date().toLocaleTimeString() : "Loading..." : "Location Permission Denied"}</Text>
+              <Text style={themedStyles.subText}>{address}</Text>
             </View>
           </View>
           <AnimatedTouchable onPress={() => {}}>
@@ -409,46 +443,7 @@ export default function UserDashboard() {
         </View>
       </LinearGradient>
 
-      {/* Radius Control */}
-      <Surface style={themedStyles.radiusSection} elevation={0}>
-        <SectionHeader title="Alert Radius" icon="location-outline" theme={theme} themedStyles={themedStyles} />
-        <Text style={themedStyles.radiusDescription}>
-          Set your preferred radius to receive animal rescue alerts
-        </Text>
-        <View style={themedStyles.radiusOptionsContainer}>
-          {radiusOptions.map((option) => (
-            <AnimatedTouchable key={option} onPress={() => setRadius(option)}>
-              <View
-                style={[
-                  themedStyles.radiusOption,
-                  radius === option && themedStyles.radiusOptionSelected,
-                ]}
-              >
-                <Text
-                  style={[
-                    themedStyles.radiusOptionText,
-                    radius === option && themedStyles.radiusOptionTextSelected,
-                  ]}
-                >
-                  {option}
-                </Text>
-              </View>
-            </AnimatedTouchable>
-          ))}
-        </View>
-        <View style={themedStyles.radiusInfo}>
-          <Ionicons
-            name="information-circle-outline"
-            size={14}
-            color={theme.colors.tabInactive}
-          />
-          <Text style={themedStyles.radiusInfoText}>
-            Currently covering approximately {radius} around your location
-          </Text>
-        </View>
-      </Surface>
-
-      {/* Map View */}
+      {/* Combined Live Rescue Feed & Alert Radius Card */}
       <Surface style={themedStyles.mapSection} elevation={0}>
         <View style={themedStyles.mapHeader}>
           <SectionHeader title="Live Rescue Feed" icon="map-outline" theme={theme} themedStyles={themedStyles} />
@@ -513,6 +508,34 @@ export default function UserDashboard() {
             );
           })}
         </MapView>
+        {/* Alert Radius Row at the bottom of the card */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderColor: theme.colors.accent }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="location-outline" size={16} color={theme.colors.tabInactive} style={{ marginRight: 6 }} />
+            <Text style={{ fontSize: 14, color: theme.colors.tabInactive, fontWeight: '600' }}>Alert Radius</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 8 }}>
+            {radiusOptions.map((option) => (
+              <AnimatedTouchable key={option} onPress={() => setRadius(option)}>
+                <View
+                  style={[
+                    themedStyles.radiusOption,
+                    radius === option && themedStyles.radiusOptionSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      themedStyles.radiusOptionText,
+                      radius === option && themedStyles.radiusOptionTextSelected,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </View>
+              </AnimatedTouchable>
+            ))}
+          </ScrollView>
+        </View>
       </Surface>
 
       {/* Rescue Cases */}
@@ -585,7 +608,7 @@ export default function UserDashboard() {
 const styles = (theme: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
-    paddingTop: 40,
+    paddingTop: 50,
     paddingBottom: theme.spacing.padding,
     paddingHorizontal: theme.spacing.padding,
     borderBottomLeftRadius: theme.spacing.radius,
