@@ -34,7 +34,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-p9t3q!th8&!tt@8=%rd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+# ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS]
+
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -49,7 +52,7 @@ INSTALLED_APPS = [
     'reports',
     'ngo',
     'notifications',
-    'user',
+    'users',
     
     'rest_framework',
 
@@ -97,10 +100,22 @@ WSGI_APPLICATION = 'api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'dj_db_conn_pool.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'karunanidhan_db'),
+        'USER': os.environ.get('POSTGRES_USER', 'karuna_user'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'karuna_pass'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+
+        'POOL_OPTIONS': {
+            'POOL_SIZE': int(os.environ.get('DB_POOL_SIZE', 10)),
+            'MAX_OVERFLOW': int(os.environ.get('DB_MAX_OVERFLOW', 5)),
+            'TIMEOUT': int(os.environ.get('DB_TIMEOUT', 10)),
+            'RECYCLE': int(os.environ.get('DB_RECYCLE', 3600)),
+        }
     }
 }
 

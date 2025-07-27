@@ -2,7 +2,7 @@ from django.db import models
 import uuid
 
 from ngo.models import NGO
-from user.models import UserProfile
+from users.models import UserProfile
 
 class InjuryReport(models.Model):
     """

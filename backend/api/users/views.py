@@ -6,10 +6,10 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.throttling import UserRateThrottle
 
 from reports.models import InjuryReport
-from user.models import UserProfile, VolunteerApplication
+from users.models import UserProfile, VolunteerApplication
 from ngo.models import NGO
 from reports.serializers import InjuryReportSerializer
-from user.serializers import UserProfileSerializer, NotificationPreferencesSerializer
+from users.serializers import UserProfileSerializer, NotificationPreferencesSerializer
 from notifications.notification_triggers import notification_triggers
 from .services.avatar_service import AvatarService
 from utils.logger import (

@@ -18,11 +18,21 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView
+)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('reports/', include('reports.urls')),
     path('ngo/', include('ngo.urls')),
-    path('user/', include('user.urls')),
+    path('users/', include('users.urls')),
+
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     path('silk/', include('silk.urls', namespace='silk')),
 ]

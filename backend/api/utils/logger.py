@@ -17,7 +17,7 @@ def get_logger(name: str) -> logging.Logger:
 
 # Module-specific loggers
 reports_logger = get_logger('reports')
-user_logger = get_logger('user')
+user_logger = get_logger('users')
 notifications_logger = get_logger('notifications')
 ngo_logger = get_logger('ngo')
 appwrite_logger = get_logger('appwrite')

@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 from .notification_service import AppwriteNotificationService
 from .utils import send_and_log_notification
-from user.models import UserProfile, VolunteerApplication
+from users.models import UserProfile, VolunteerApplication
 from ngo.models import NGO
 from reports.models import InjuryReport, ReportStatusHistory
 import uuid

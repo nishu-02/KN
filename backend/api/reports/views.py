@@ -14,7 +14,7 @@ from .models import InjuryReport, ExpoPushToken
 from ngo.models import NGO
 from .services.gemini_client import analyze_animal_injury
 from .serializers import InjuryReportSerializer
-from user.models import UserProfile
+from users.models import UserProfile
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports, get_nearby_volunteers

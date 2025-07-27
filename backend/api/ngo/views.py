@@ -10,7 +10,7 @@ from .models import NGO
 from .serializers import NGORegisterSerializer
 from reports.models import InjuryReport
 from reports.serializers import InjuryReportSerializer
-from user.models import VolunteerApplication
+from users.models import VolunteerApplication
 from notifications.utils import send_and_log_notification
 from notifications.notification_triggers import notification_triggers
 from utils.logger import (
