@@ -1,6 +1,6 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from user.models import VolunteerApplication
+from users.models import VolunteerApplication
 from reports.models import InjuryReport, ReportStatusHistory
 from .notification_triggers import notification_triggers
 

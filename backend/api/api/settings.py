@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+import logging
+from logging.handlers import TimedRotatingFileHandler
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -19,18 +21,23 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Create logs directory if it doesn't exist
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-p9t3q!th8&!tt@8=%rdzr0qe)t&ez1(yi83h4ob2p(6gono#w%'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-p9t3q!th8&!tt@8=%rdzr0qe)t&ez1(yi83h4ob2p(6gono#w%')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['*', '192.168.0.104', 'localhost', '127.0.0.1']
+# ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS]
 
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -45,7 +52,7 @@ INSTALLED_APPS = [
     'reports',
     'ngo',
     'notifications',
-    'user',
+    'users',
     
     'rest_framework',
 
@@ -93,10 +100,22 @@ WSGI_APPLICATION = 'api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'dj_db_conn_pool.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'karunanidhan_db'),
+        'USER': os.environ.get('POSTGRES_USER', 'karuna_user'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'karuna_pass'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+
+        'POOL_OPTIONS': {
+            'POOL_SIZE': int(os.environ.get('DB_POOL_SIZE', 10)),
+            'MAX_OVERFLOW': int(os.environ.get('DB_MAX_OVERFLOW', 5)),
+            'TIMEOUT': int(os.environ.get('DB_TIMEOUT', 10)),
+            'RECYCLE': int(os.environ.get('DB_RECYCLE', 3600)),
+        }
     }
 }
 
@@ -105,20 +124,28 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    
     'DEFAULT_AUTHENTICATION_CLASSES': (
-    'reports.authentication.AppwriteJWTAuthentication',
+        'reports.authentication.AppwriteJWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '1000/day',  # Adjust as needed
+        'anon': '100/day',   # Adjust as needed
+    },
+    'EXCEPTION_HANDLER': 'utils.error_handler.custom_exception_handler',
 }
 
 
+# Appwrite Configuration
 APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
 APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
-
 APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
 APPWRITE_DATABASE_ID = os.getenv("APPWRITE_DATABASE_ID")
 APPWRITE_REPORT_COLLECTION_ID = os.getenv("APPWRITE_REPORT_COLLECTION_ID")
-APPWRITE_BUCKET_ID=os.getenv("APPWRITE_BUCKET_ID")
+APPWRITE_BUCKET_ID = os.getenv("APPWRITE_BUCKET_ID")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -163,7 +190,128 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'KaurnaNidhan',
-    'DESCRIPTION': 'KarunaNidhan is an AI-driven mobile platform designed to assist injured stray animals. Users can capture a photo of the injured animal, which our app’s ML model analyzes to generate a “Doctor Card” summarizing the injury, urgency, and suggested actions. This report is posted to a shared portal where NGOs and volunteers can view, respond, and update progress. By combining computer vision with LLMs, KarunaNidhan bridges the gap between public awareness and real-time rescue actions, ensuring timely support for voiceless beings while streamlining coordination across animal welfare networks.',
+    'DESCRIPTION': 'KarunaNidhan is an AI-driven mobile platform designed to assist injured stray animals. Users can capture a photo of the injured animal, which our app\'s ML model analyzes to generate a "Doctor Card" summarizing the injury, urgency, and suggested actions. This report is posted to a shared portal where NGOs and volunteers can view, respond, and update progress. By combining computer vision with LLMs, KarunaNidhan bridges the gap between public awareness and real-time rescue actions, ensuring timely support for voiceless beings while streamlining coordination across animal welfare networks.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+}
+
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Use Redis as the message broker
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0' # Use Redis for storing task results
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'detailed': {
+            'format': '[{asctime}] {levelname} {name} {funcName}:{lineno} - {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+            'level': 'INFO',
+        },
+        'daily_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOGS_DIR / 'daily.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 30,  # Keep 30 days of logs
+            'formatter': 'detailed',
+            'level': 'INFO',
+        },
+        'monthly_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOGS_DIR / 'monthly.log',
+            'when': 'M',  # Monthly rotation
+            'interval': 1,
+            'backupCount': 12,  # Keep 12 months of logs
+            'formatter': 'detailed',
+            'level': 'WARNING',
+        },
+        'error_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOGS_DIR / 'errors.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 30,
+            'formatter': 'detailed',
+            'level': 'ERROR',
+        },
+        'security_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOGS_DIR / 'security.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 90,  # Keep security logs longer
+            'formatter': 'detailed',
+            'level': 'INFO',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'daily_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console', 'daily_file', 'error_file', 'security_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['security_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['daily_file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'reports': {
+            'handlers': ['console', 'daily_file', 'monthly_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'user': {
+            'handlers': ['console', 'daily_file', 'monthly_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'notifications': {
+            'handlers': ['console', 'daily_file', 'monthly_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'ngo': {
+            'handlers': ['console', 'daily_file', 'monthly_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'appwrite': {
+            'handlers': ['console', 'daily_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console', 'daily_file', 'error_file'],
+        'level': 'WARNING',
+    },
 }

@@ -3,6 +3,7 @@ from appwrite.services.databases import Databases
 from appwrite.services.storage import Storage
 
 from django.conf import settings
+from utils.logger import appwrite_logger, log_appwrite_operation
 
 def get_appwrite_client():
     """
@@ -15,6 +16,7 @@ def get_appwrite_client():
     return client
 
 
+@log_appwrite_operation(appwrite_logger, 'create')
 def create_appwrite_report(report):
     """
     Create a new injury report document in Appwrite.
@@ -36,10 +38,11 @@ def create_appwrite_report(report):
         )
         return response
     except Exception as e:
-        print(f"Appwrite report sync failed: {e}")
+        appwrite_logger.error(f"Appwrite report sync failed: {e}")
         return None
 
 
+@log_appwrite_operation(appwrite_logger, 'create')
 def create_appwrite_notification(payload: dict):
     """
     Create a new notification document in Appwrite.
@@ -56,9 +59,10 @@ def create_appwrite_notification(payload: dict):
         )
         return response
     except Exception as e:
-        print(f"Appwrite notification sync failed: {e}")
+        appwrite_logger.error(f"Appwrite notification sync failed: {e}")
         return None
 
+@log_appwrite_operation(appwrite_logger, 'update')
 def update_notification_status(report_id, ngo_id, new_status):
 
     """
@@ -80,7 +84,7 @@ def update_notification_status(report_id, ngo_id, new_status):
         
         documents = result.get('documents', [])
         if not documents:
-            print("Notification not found for report and NGO")
+            appwrite_logger.warning(f"Notification not found for report and NGO: report_id={report_id}, ngo_id={ngo_id}")
             return None
         doc_id = documents[0]['$id']
         updated = databases.update_document(
@@ -95,10 +99,11 @@ def update_notification_status(report_id, ngo_id, new_status):
         return updated
 
     except Exception as e:
-        print(f"[Appwrite] Failed to update the notification status: {e}")
+        appwrite_logger.error(f"Failed to update the notification status: {e}")
         return None
 
 import io
+@log_appwrite_operation(appwrite_logger, 'upload')
 def upload_image_to_appwrite(image_file):
     client = get_appwrite_client()
     storage = Storage(client)
