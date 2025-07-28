@@ -1,4 +1,4 @@
 venv/
 .env
 backend/api/reports/__pycache__
-front
+logs
