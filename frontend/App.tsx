@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { StatusBar } from "react-native";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { StatusBar, View } from "react-native";
 import {
   Provider as ReduxProvider,
   useDispatch,
@@ -21,10 +21,8 @@ import RegisterPage from "./screens/RegisterScreen";
 import RegisterNGOScreen from "./screens/RegisterNGOScreen";
 import RegisterIndividualScreen from "./screens/RegisterIndividualScreen";
 import NGODashboardScreen from "./screens/NGODashboardScreen";
-import UserDashboardScreen from "./screens/user/UploadRescueScreen";
 import { registerForPushNotificationsAsync } from "./PushTokenRegister";
 
-// import CameraScreen from "./screens/user/camera/CameraScreen";
 import UploadRescueScreen from "./screens/user/camera/UploadRescueScreen";
 import SplashScreen from "./screens/user/SplashScreen";
 import SettingsScreen from './screens/user/SettingsScreen';
@@ -39,14 +37,6 @@ function stripCustomThemeKeys(theme: any) {
 
 const Stack = createNativeStackNavigator();
 
-const theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: "white",
-  },
-};
-
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -58,23 +48,34 @@ Notifications.setNotificationHandler({
   }),
 });
 
-function RootNavigator() {
+// Move RootNavigator outside App component to prevent recreation
+const RootNavigator = React.memo(() => {
   const dispatch = useAppDispatch();
   const { initialized, authenticated, loading, user } = useSelector(
     (s: RootState) => s.auth
   );
 
-  useEffect(() => {
-    // Initialize session on app start
+  // Memoize the initialization effect
+  const initializeSession = useCallback(() => {
     dispatch(initSession());
   }, [dispatch]);
 
-  // Register for push notifications when user is authenticated
   useEffect(() => {
+    // Initialize session on app start
+    initializeSession();
+  }, [initializeSession]);
+
+  // Memoize push notification registration
+  const registerNotifications = useCallback(() => {
     if (authenticated && user?.$id) {
       registerForPushNotificationsAsync(user.$id);
     }
   }, [authenticated, user]);
+
+  // Register for push notifications when user is authenticated
+  useEffect(() => {
+    registerNotifications();
+  }, [registerNotifications]);
 
   // Set up notification listeners
   useEffect(() => {
@@ -103,7 +104,7 @@ function RootNavigator() {
     return (
       <PaperProvider>
         <StatusBar barStyle="dark-content" />
-        <React.Fragment>
+        <View style={{ flex: 1 }}>
           <ActivityIndicator
             animating
             size="large"
@@ -114,13 +115,13 @@ function RootNavigator() {
               marginTop: 100,
             }}
           />
-        </React.Fragment>
+        </View>
       </PaperProvider>
     );
   }
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <StatusBar barStyle="dark-content" />
       <Stack.Navigator>
         {!authenticated ? (
@@ -158,21 +159,23 @@ function RootNavigator() {
               component={NGODashboardScreen}
               options={{ headerShown: false }}
             />
-           <Stack.Screen name="BottomTabs" component={UserBottomTabs} />
-      <Stack.Screen name="UploadRescue" component={UploadRescueScreen} />
+            <Stack.Screen name="UploadRescue" component={UploadRescueScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
           </>
         )}
       </Stack.Navigator>
-    </>
+    </View>
   );
-}
+});
+
+RootNavigator.displayName = 'RootNavigator';
 
 export default function App() {
   const [isDark, setIsDark] = useState(false);
-  const [showSplash, setShowSplash] = useState(true); // <-- Add this
+  const [showSplash, setShowSplash] = useState(true);
+  
   const theme = useMemo(() => (isDark ? darkTheme : lightTheme), [isDark]);
-  const toggleTheme = () => setIsDark((prev) => !prev);
+  const toggleTheme = useCallback(() => setIsDark((prev) => !prev), []);
 
   useEffect(() => {
     // Show splash for 2 seconds

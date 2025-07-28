@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+// Animal Rescue User Home Screen
+// Enhanced UI, explicit types, and linter fixes
+
+import * as React from "react";
 import {
   View,
   StyleSheet,
@@ -7,6 +10,7 @@ import {
   TouchableOpacity,
   Dimensions,
   RefreshControl,
+  Linking,
 } from "react-native";
 import {
   Text,
@@ -19,6 +23,7 @@ import {
   Surface,
   Badge,
   ProgressBar,
+  Tooltip, // Add Tooltip for info icons
 } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,6 +35,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useThemeContext } from '../../theme';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -160,10 +166,11 @@ const getSeverityStyles = (severity: string, theme: any) => ({
 });
 
 // Reusable Components
+// AnimatedTouchable with explicit types
 const AnimatedTouchable: React.FC<{
   children: React.ReactNode;
   onPress: () => void;
-}> = ({ children, onPress }) => {
+}> = ({ children, onPress }: { children: React.ReactNode; onPress: () => void }) => {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(scale.value) }],
@@ -181,12 +188,13 @@ const AnimatedTouchable: React.FC<{
   );
 };
 
+// SectionHeader with explicit types
 const SectionHeader: React.FC<{
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
   theme: any;
   themedStyles: any;
-}> = ({ title, icon, theme, themedStyles }) => (
+}> = ({ title, icon, theme, themedStyles }: { title: string; icon: keyof typeof Ionicons.glyphMap; theme: any; themedStyles: any }) => (
   <View style={themedStyles.sectionHeader}>
     <Ionicons
       name={icon}
@@ -198,153 +206,195 @@ const SectionHeader: React.FC<{
   </View>
 );
 
-const RescueCaseCard: React.FC<{ rescue: RescueCase; theme: any; themedStyles: any }> = ({ rescue, theme, themedStyles }) => {
-  const { color, icon, textColor } = getSeverityStyles(rescue.severity, theme);
+// Redesigned Stray Rescue Card with improved UI and explicit types
+interface StrayRescueCardProps {
+  rescue: RescueCase;
+  theme: any;
+  themedStyles: any;
+}
+
+const StrayRescueCard: React.FC<StrayRescueCardProps> = ({ rescue, theme, themedStyles }) => {
+  const aiConfidence = 0.9; // 90%
+  const ageProgress = 0.8; // 80%
+  const severityProgress = 0.75; // 75%
+  const urgencyProgress = 0.7; // 70%
+  const behaviorProgress = 0.85; // 85%
+  const [expanded, setExpanded] = React.useState(false);
+  const [address, setAddress] = React.useState<string>("Locating...");
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const geo = await Location.reverseGeocodeAsync(rescue.location);
+        if (geo && geo.length > 0) {
+          const g = geo[0];
+          setAddress([g.name, g.street, g.district, g.city, g.region].filter(Boolean).join(', '));
+        } else {
+          setAddress("Unknown location");
+        }
+      } catch {
+        setAddress("Unknown location");
+      }
+    })();
+  }, [rescue.location]);
+
+  const openInMaps = () => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${rescue.location.latitude},${rescue.location.longitude}`;
+    Linking.openURL(url);
+  };
+
+  // In StrayRescueCard, update the color assignments for the summary bar:
+  // Replace theme.colors.critical, theme.colors.high, theme.colors.low, theme.colors.moderate with darker, more saturated colors for light mode.
+
+  // Example color assignments for better visibility in light mode:
+  const summaryColors = {
+    severity: theme.isDark ? '#FF8A80' : '#D32F2F',      // Red 700
+    urgency: theme.isDark ? '#FFD180' : '#F9A825',       // Amber 800
+    behavior: theme.isDark ? '#A5D6A7' : '#388E3C',      // Green 700
+    age: theme.isDark ? '#FFF59D' : '#FBC02D',           // Yellow 800
+    ai: theme.isDark ? '#A5D6A7' : '#388E3C',            // Green 700 for AI confidence
+  };
 
   return (
-    <Card style={themedStyles.card} elevation={0}>
-      <View style={themedStyles.cardHeader}>
-        <View style={themedStyles.cardHeaderLeft}>
-          <Image source={{ uri: rescue.image }} style={themedStyles.animalImage} />
-          <View style={themedStyles.cardHeaderText}>
-            <Text style={themedStyles.cardTitle}>{rescue.title}</Text>
-            <Text style={themedStyles.cardSubtitle}>{`${rescue.species} • ${rescue.breed}`}</Text>
-          </View>
+    <Card style={[themedStyles.card, { marginBottom: 16, borderWidth: 1, borderColor: theme.colors.accent }]} elevation={3}>
+      {/* Card Header: Title, Species, Location, Time */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
+        <Image source={{ uri: rescue.image }} style={{ width: 70, height: 70, borderRadius: 12, marginRight: 12, borderWidth: 2, borderColor: theme.colors.critical }} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: 'bold', fontSize: 16, color: theme.colors.text }}>
+            {rescue.title} <Text style={{ fontSize: 15 }}>{rescue.species === 'Canine' ? '🐶' : rescue.species === 'Avian' ? '🐦' : '🐾'}</Text>
+          </Text>
+          <TouchableOpacity onPress={openInMaps} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+            <Ionicons name="location-outline" size={14} color={theme.colors.tabInactive} style={{ marginRight: 4 }} />
+            <Text style={{ color: theme.colors.tabInactive, fontSize: 13, textDecorationLine: 'underline', flexWrap: 'wrap', flex: 1 }}>
+              {address}
+            </Text>
+          </TouchableOpacity>
+          <Text style={{ color: theme.colors.tabInactive, fontSize: 13 }}>
+            🕒 {rescue.time}
+          </Text>
         </View>
-        <View style={themedStyles.cardHeaderRight}>
-          <Chip
-            icon={icon as any}
-            style={[themedStyles.severityChip, { backgroundColor: color, borderWidth: 1, borderColor: textColor }]}
-            textStyle={[themedStyles.chipText, { color: textColor }]}
-          >
-            {rescue.severity}
-          </Chip>
-          <Text style={themedStyles.timeStamp}>{rescue.time}</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Tooltip title="AI Confidence: How sure the AI is about the analysis" enterTouchDelay={0}>
+            <Ionicons name="information-circle-outline" size={16} color={summaryColors.ai} style={{ marginBottom: 2 }} />
+          </Tooltip>
+          <Text style={{ fontSize: 12, color: theme.colors.tabInactive }}>AI Confidence</Text>
+          <Text style={{ fontWeight: 'bold', color: summaryColors.ai }}>{Math.round(aiConfidence * 100)}%</Text>
+          <ProgressBar progress={aiConfidence} color={summaryColors.ai} style={{ width: 40, height: 6, borderRadius: 3, marginTop: 2 }} />
         </View>
       </View>
-      <Divider style={themedStyles.cardDivider} />
-      <View style={themedStyles.animalInfo}>
-        <Text style={themedStyles.infoSectionTitle}>Animal Information</Text>
-        <View style={themedStyles.infoGrid}>
-          {[
-            { label: "Age", value: rescue.age },
-            { label: "Gender", value: rescue.gender },
-            { label: "Weight", value: rescue.weight },
-            { label: "Species", value: rescue.species },
-          ].map(({ label, value }, index) => (
-            <View key={index} style={themedStyles.infoItem}>
-              <Text style={themedStyles.infoLabel}>{`${label}:`}</Text>
-              <Text style={themedStyles.infoValue}>{value}</Text>
+      <Divider />
+      {/* Visual Summary Bar for Severity, Urgency, Age, Behavior */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Tooltip title="Severity: How serious the injury is" enterTouchDelay={0}>
+            <Ionicons name="alert-circle-outline" size={18} color={summaryColors.severity} />
+          </Tooltip>
+          <ProgressBar progress={severityProgress} color={summaryColors.severity} style={{ width: 50, height: 6, borderRadius: 3, marginTop: 2 }} />
+          <Text style={{ fontSize: 11, color: summaryColors.severity, marginTop: 2 }}>Severity</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Tooltip title="Urgency: How quickly action is needed" enterTouchDelay={0}>
+            <Ionicons name="timer-outline" size={18} color={summaryColors.urgency} />
+          </Tooltip>
+          <ProgressBar progress={urgencyProgress} color={summaryColors.urgency} style={{ width: 50, height: 6, borderRadius: 3, marginTop: 2 }} />
+          <Text style={{ fontSize: 11, color: summaryColors.urgency, marginTop: 2 }}>Urgency</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Tooltip title="Behavior: How calm or aggressive the animal is" enterTouchDelay={0}>
+            <Ionicons name="paw-outline" size={18} color={summaryColors.behavior} />
+          </Tooltip>
+          <ProgressBar progress={behaviorProgress} color={summaryColors.behavior} style={{ width: 50, height: 6, borderRadius: 3, marginTop: 2 }} />
+          <Text style={{ fontSize: 11, color: summaryColors.behavior, marginTop: 2 }}>Behavior</Text>
             </View>
-          ))}
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Tooltip title="Age: Estimated age of the animal" enterTouchDelay={0}>
+            <Ionicons name="calendar-outline" size={18} color={summaryColors.age} />
+          </Tooltip>
+          <ProgressBar progress={ageProgress} color={summaryColors.age} style={{ width: 50, height: 6, borderRadius: 3, marginTop: 2 }} />
+          <Text style={{ fontSize: 11, color: summaryColors.age, marginTop: 2 }}>Age</Text>
         </View>
       </View>
-      <View style={themedStyles.medicalInfo}>
-        <Text style={themedStyles.infoSectionTitle}>Medical Status</Text>
-        <Text style={themedStyles.injurySummary}>{rescue.injurySummary}</Text>
-        <View style={themedStyles.symptomsContainer}>
-          <Text style={themedStyles.symptomsTitle}>Symptoms:</Text>
-          <View style={themedStyles.symptomsChips}>
-            {rescue.symptoms.map((symptom, index) => (
-              <Chip
-                key={index}
-                style={themedStyles.symptomChip}
-                textStyle={themedStyles.chipText}
-              >
-                {symptom}
-              </Chip>
-            ))}
+      <Divider />
+      {/* Injury, Symptoms, Vet Timeline, Context */}
+      <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+        <Text style={{ fontSize: 13, color: theme.colors.text, fontWeight: 'bold', marginBottom: 2 }}>🩹 Injury</Text>
+        <Text
+          numberOfLines={expanded ? undefined : 2}
+          ellipsizeMode={expanded ? undefined : 'tail'}
+          onPress={() => setExpanded((e) => !e)}
+          style={{ color: theme.colors.text, fontWeight: 'normal', textDecorationLine: expanded ? 'underline' : 'none', marginBottom: 4 }}
+        >
+          {rescue.injurySummary || 'Wound'}
+        </Text>
+        {!expanded && rescue.injurySummary && rescue.injurySummary.length > 40 && (
+          <Text style={{ color: theme.colors.primary }} onPress={() => setExpanded(true)}> ...more</Text>
+        )}
+        <Text style={{ fontSize: 13, color: theme.colors.text, marginTop: 2 }}>🩸 <Text style={{ fontWeight: 'bold' }}>Symptoms:</Text> {rescue.symptoms.slice(0, 3).join(', ')}</Text>
+        <Text style={{ fontSize: 13, color: theme.colors.text, marginTop: 2 }}>🕒 <Text style={{ fontWeight: 'bold' }}>Vet Timeline:</Text> 1-2 hrs</Text>
+        <Text style={{ fontSize: 13, color: theme.colors.text, marginTop: 2 }}>🏞️ <Text style={{ fontWeight: 'bold' }}>Context:</Text> Stray</Text>
           </View>
+      <Divider />
+      {/* Actions and Care Tips */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13, color: theme.colors.text, fontWeight: 'bold' }}>Actions:</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.text }}>🛑 Approach gently</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.text }}>📞 Call for help</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.text }}>📸 Take a photo</Text>
         </View>
-        <View style={themedStyles.vitalsContainer}>
-          <Text style={themedStyles.vitalsTitle}>Vital Signs:</Text>
-          <View style={themedStyles.vitalsGrid}>
-            {[
-              { label: "Temp", value: rescue.vitals.temperature },
-              { label: "Heart", value: rescue.vitals.heartRate },
-              { label: "Breathing", value: rescue.vitals.breathing },
-            ].map(({ label, value }, index) => (
-              <View key={index} style={themedStyles.vitalItem}>
-                <Text style={themedStyles.vitalLabel}>{`${label}:`}</Text>
-                <Text style={themedStyles.vitalValue}>{value}</Text>
-              </View>
-            ))}
-          </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13, color: theme.colors.text, fontWeight: 'bold' }}>Care Tips:</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.text }}>💦 Give water</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.text }}>🍗 Offer food</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.text }}>🧣 Keep warm</Text>
         </View>
       </View>
-      <View style={themedStyles.progressSection}>
-        <Text style={themedStyles.progressTitle}>Rescue Progress</Text>
-        <ProgressBar
-          progress={rescue.rescueProgress}
-          color={color}
-          style={themedStyles.progressBar}
-        />
-        <Text style={themedStyles.progressText}>{`${Math.round(
-          rescue.rescueProgress * 100
-        )}% Complete`}</Text>
+      <Divider />
+      {/* Action Buttons */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}>
+        <Button mode="outlined" icon="send" style={{ flex: 1, marginRight: 8 }} onPress={() => {}}>
+          Send to Volunteer
+        </Button>
+        <Button mode="contained" icon="check" style={{ flex: 1 }} buttonColor={summaryColors.ai} onPress={() => {}}>
+          I Will Take It
+        </Button>
       </View>
-      <View style={themedStyles.rescueTeamInfo}>
-        {[
-          { icon: "business-outline", text: `NGO: ${rescue.ngo}` },
-          { icon: "person-outline", text: `Volunteer: ${rescue.volunteer}` },
-          { icon: "card-outline", text: `Est. Cost: ${rescue.estimatedCost}` },
-        ].map(({ icon, text }, index) => (
-          <View key={index} style={themedStyles.teamItem}>
-            <Ionicons
-              name={icon as any}
-              size={14}
-              color={theme.colors.tabInactive}
-            />
-            <Text style={themedStyles.teamText}>{text}</Text>
-          </View>
-        ))}
-      </View>
-      <View style={themedStyles.cardActions}>
-        {[
-          {
-            icon: "check-circle-outline",
-            text: "Mark Helped",
-            mode: "contained" as "contained",
-            color: theme.colors.low,
-          },
-          {
-            icon: "alert-circle-outline",
-            text: "Report Again",
-            mode: "outlined" as "outlined",
-            textColor: theme.colors.high,
-          },
-          {
-            icon: "share-outline",
-            text: "Share",
-            mode: "text" as "text",
-            textColor: theme.colors.primary,
-          },
-        ].map(({ icon, text, mode, color, textColor }, index) => (
-          <Button
-            key={index}
-            mode={mode}
-            icon={icon as any}
-            style={themedStyles.actionButton}
-            buttonColor={color}
-            textColor={textColor || theme.colors.text}
-          >
-            {text}
-          </Button>
-        ))}
+      <Divider />
+      {/* Disclaimer */}
+      <View style={{ paddingHorizontal: 12, paddingVertical: 6 }}>
+        <Text style={{ fontSize: 12, color: theme.colors.tabInactive }}>
+          ⚠️ AI-based, see vet. Injury area highlighted in image. Empathy saves lives.
+        </Text>
       </View>
     </Card>
   );
 };
 
-export default function UserDashboard() {
+export default function UserHomeScreen() {
   const { theme } = useThemeContext();
   const themedStyles = styles(theme);
-  const [radius, setRadius] = useState("5 km");
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
-  const [address, setAddress] = useState<string>("Locating...");
-  const [currentTime, setCurrentTime] = useState<string>(new Date().toLocaleTimeString());
-  const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
+  const route = useRoute<any>();
+  const [radius, setRadius] = React.useState("5 km");
+  const [userLocation, setUserLocation] = React.useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationPermission, setLocationPermission] = React.useState<'granted' | 'denied' | 'undetermined'>('undetermined');
+  const [address, setAddress] = React.useState<string>("Locating...");
+  const [currentTime, setCurrentTime] = React.useState<string>(new Date().toLocaleTimeString());
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [rescueCasesState, setRescueCasesState] = React.useState(rescueCases);
+
+  // Accept new rescue card from navigation params
+  useFocusEffect(
+    React.useCallback(() => {
+      if (route.params && route.params.newRescue) {
+        console.log('Adding new rescue card:', route.params.newRescue);
+        setRescueCasesState(prev => [route.params.newRescue, ...prev]);
+        // Clear the params to prevent re-adding on subsequent focuses
+        navigation.setParams(undefined);
+      }
+    }, [route.params, navigation])
+  );
 
   // Fetch location and address (non-blocking, update UI when ready)
   const fetchLocationAndAddress = async () => {
@@ -369,17 +419,14 @@ export default function UserDashboard() {
       setAddress("Location Error");
     }
   };
-
   React.useEffect(() => {
     fetchLocationAndAddress();
   }, []);
-
   // Real-time clock
   React.useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
     return () => clearInterval(timer);
   }, []);
-
   // Pull-to-refresh handler with max timeout
   const onRefresh = async () => {
     setRefreshing(true);
@@ -393,7 +440,6 @@ export default function UserDashboard() {
     setRefreshing(false);
     clearTimeout(timeout);
   };
-
   // Convert radius string to meters
   const getRadiusMeters = (radiusStr: string) => {
     const num = parseFloat(radiusStr);
@@ -401,7 +447,6 @@ export default function UserDashboard() {
     if (radiusStr.includes('m')) return num;
     return 5000; // default 5km
   };
-
   return (
     <ScrollView
       style={themedStyles.container}
@@ -424,7 +469,7 @@ export default function UserDashboard() {
               <Ionicons
                 name="location-outline"
                 size={14}
-                color={theme.colors.tabInactive}
+                color={theme.colors.subtext}
                 style={themedStyles.iconSpacing}
               />
               <Text style={themedStyles.subText}>{address}</Text>
@@ -479,11 +524,12 @@ export default function UserDashboard() {
                 center={userLocation}
                 radius={getRadiusMeters(radius)}
                 strokeColor={theme.colors.primary}
-                fillColor={theme.colors.primary + '22'}
+                fillColor={theme.colors.primary + '20'}
+                
               />
             </>
           )}
-          {rescueCases.map((rescue) => {
+          {rescueCasesState.map((rescue) => {
             const { color, icon, textColor } = getSeverityStyles(rescue.severity, theme);
             return (
             <Marker
@@ -511,8 +557,8 @@ export default function UserDashboard() {
         {/* Alert Radius Row at the bottom of the card */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderColor: theme.colors.accent }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="location-outline" size={16} color={theme.colors.tabInactive} style={{ marginRight: 6 }} />
-            <Text style={{ fontSize: 14, color: theme.colors.tabInactive, fontWeight: '600' }}>Alert Radius</Text>
+            <Ionicons name="location-outline" size={16} color={theme.colors.subtext} style={{ marginRight: 6 }} />
+            <Text style={{ fontSize: 14, color: 'black', fontWeight: '600' }}>Alert Radius :-   </Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 8 }}>
             {radiusOptions.map((option) => (
@@ -541,66 +587,11 @@ export default function UserDashboard() {
       {/* Rescue Cases */}
       <View style={themedStyles.casesSection}>
         <SectionHeader title="Nearby Rescue Cases" icon="heart-outline" theme={theme} themedStyles={themedStyles} />
-        {rescueCases.map((rescue) => (
-          <RescueCaseCard key={rescue.id} rescue={rescue} theme={theme} themedStyles={themedStyles} />
+        {rescueCasesState.map((rescue) => (
+          <StrayRescueCard key={rescue.id} rescue={rescue} theme={theme} themedStyles={themedStyles} />
         ))}
       </View>
 
-      {/* Status Updates */}
-      <Surface style={themedStyles.statusSection} elevation={0}>
-        <SectionHeader title="Your Reports" icon="list-outline" theme={theme} themedStyles={themedStyles} />
-        <Card style={themedStyles.statusCard} elevation={0}>
-          <Card.Content>
-            {[
-              {
-                title: "Injured Cow Near Red Fort",
-                description: "NGO: Animal Aid • Status: In Progress",
-                icon: "alert",
-                iconColor: theme.colors.high,
-                badge: "Active",
-                badgeColor: theme.colors.low,
-              },
-              {
-                title: "Stray Pup with Broken Leg",
-                description: "NGO: Awaiting Response • Status: Reported",
-                icon: "paw",
-                iconColor: theme.colors.primary,
-                badge: "Pending",
-                badgeColor: theme.colors.moderate,
-              },
-            ].map(
-              (
-                { title, description, icon, iconColor, badge, badgeColor },
-                index
-              ) => (
-                <View key={index}>
-                  <List.Item
-                    title={title}
-                    description={description}
-                    left={(props) => (
-                      <List.Icon {...props} icon={icon as any} color={iconColor} />
-                    )}
-                    right={() => (
-                      <View style={themedStyles.statusRight}>
-                        <Badge
-                          style={[
-                            themedStyles.statusBadge,
-                            { backgroundColor: badgeColor },
-                          ]}
-                        >
-                          {badge}
-                        </Badge>
-                        <IconButton icon="chevron-right" />
-                      </View>
-                    )}
-                  />
-                  {index < 1 && <Divider />}
-                </View>
-              )
-            )}
-          </Card.Content>
-        </Card>
-      </Surface>
     </ScrollView>
   );
 }
@@ -608,7 +599,7 @@ export default function UserDashboard() {
 const styles = (theme: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
-    paddingTop: 50,
+    paddingTop: 40,
     paddingBottom: theme.spacing.padding,
     paddingHorizontal: theme.spacing.padding,
     borderBottomLeftRadius: theme.spacing.radius,
@@ -620,19 +611,22 @@ const styles = (theme: any) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerTextContainer: { flex: 1 },
+  headerTextContainer: { flex: 1, flexWrap: 'wrap' },
   greeting: {
-    fontSize: (theme.spacing.fontLarge ? theme.spacing.fontLarge + 6 : 26),
+    fontFamily: 'cursive',
+    fontSize: (theme.spacing.fontLarge ? theme.spacing.fontLarge + 6 : 36),
     color: theme.colors.text,
     fontWeight: "600",
-    marginBottom: 2,
   },
-  boldText: { fontWeight: "bold", fontSize: (theme.spacing.fontLarge ? theme.spacing.fontLarge + 10 : 30), color: theme.colors.text },
-  headerSubRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  boldText: { fontWeight: "condensedBold", fontSize: (theme.spacing.fontLarge ? theme.spacing.fontLarge + 10 : 30), color: theme.colors.text },
+  headerSubRow: { flexDirection: "row", alignItems: "center", marginTop: 6, color: 'black' },
   subText: {
     fontSize: 14,
-    color: theme.colors.tabInactive,
+    color: 'black',
     fontWeight: "500",
+    flexWrap: 'wrap',
+    paddingRight: 25,
+    flex: 1,
   },
   dot: {
     width: 6,
@@ -641,7 +635,7 @@ const styles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.colors.tabActive,
     marginHorizontal: 8,
   },
-  iconSpacing: { marginHorizontal: 4 },
+  iconSpacing: { marginHorizontal: 2 },
   headerNotifContainer: {
     position: "relative",
     justifyContent: "center",
@@ -685,7 +679,7 @@ const styles = (theme: any) => StyleSheet.create({
   sectionIcon: { marginRight: 8 },
   radiusDescription: {
     fontSize: 14,
-    color: theme.colors.tabInactive,
+    color: theme.colors.subtext,
     marginBottom: 10,
   },
   radiusOptionsContainer: {
@@ -704,16 +698,16 @@ const styles = (theme: any) => StyleSheet.create({
   },
   radiusOptionSelected: {
     backgroundColor: theme.colors.tabActive,
-    borderColor: theme.colors.tabActive,
+    // borderColor: theme.colors.tabActive,
   },
   radiusOptionText: {
     fontSize: 14,
-    color: theme.colors.tabInactive,
+    color: 'black',
     fontWeight: "500",
   },
-  radiusOptionTextSelected: { color: theme.colors.card },
-  radiusInfo: { flexDirection: "row", alignItems: "center", gap: 8 },
-  radiusInfoText: { fontSize: 12, color: theme.colors.tabInactive, flex: 1 },
+  radiusOptionTextSelected: { color: '#ffb259ff' },
+  radiusInfo: { flexDirection: "row", alignItems: "center", gap: 8, color: theme.colors.subtext },
+  radiusInfoText: { fontSize: 12, color: 'black', flex: 1 },
   mapSection: {
     margin: theme.spacing.margin,
     borderRadius: theme.spacing.radius,

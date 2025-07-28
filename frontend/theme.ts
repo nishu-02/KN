@@ -1,91 +1,89 @@
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { createContext, useContext } from 'react';
 
+// Light Theme - User's preferred color combination
 export const lightTheme = {
   ...MD3LightTheme,
+  name: 'light',
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#8b4513',
-    secondary: '#BCAAA4',
-    background: '#F5F5F5',
-    card: '#FFFFFF',
-    text: '#222222',
-    subtext: '#888888',
-    critical: '#FFCDD2',
-    high: '#FFE0B2',
-    moderate: '#FFF9C4',
-    low: '#C8E6C9',
-    accent: '#F5F5F5',
-    shadow: 'rgba(0,0,0,0.08)',
-    border: '#E0E0E0', // required for navigation
-    notification: '#FF7043', // required for navigation
-    // UserBottomTabs palette
-    tabBackground1: '#F5F5DC',
-    tabBackground2: '#ffffff',
-    tabBackground3: '#D2B48C',
-    tabBackground4: '#CD853F',
-    tabActive: '#8B4513',
-    tabInactive: '#A0826D',
-    cameraGradient1: '#D2691E',
-    cameraGradient2: '#8B4513',
-    cameraGradient3: '#654321',
-    cameraBorder: '#F5F5DC',
-  },
-  cardShadow: {
-    shadowColor: 'rgba(0,0,0,0.12)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.20,
-    shadowRadius: 12,
-    elevation: 6,
+    primary: '#ffb265ff', // Saffron Orange
+    secondary: '#0D47A1', // Deep Blue
+    tertiary: '#2E7D32', // Forest Green
+    background: '#FAFAFA', // Light Gray Background
+    surface: '#FFFFFF', // White Surface
+    card: '#FFFFFF', // White Cards
+    text: '#212121', // Dark Text
+    subtext: '#757575', // Gray Subtext
+    accent: '#F5F5F5', // Light Accent
+    tabBackground1: '#FFFFFF', // Tab Background
+    tabBackground2: '#F8F9FA', // Secondary Tab Background
+    low: '#E8F5E8', // Light Green for Low Priority
+    medium: '#FFF3E0', // Light Orange for Medium Priority
+    high: '#FFEBEE', // Light Red for High Priority
+    critical: '#FFCDD2', // Critical Red
+    onPrimary: '#FFFFFF',
+    onSecondary: '#FFFFFF',
+    onSurface: '#212121',
+    onSurfaceVariant: '#757575',
   },
   spacing: {
-    radius: 16,
     padding: 16,
-    margin: 16,
+    margin: 12,
+    radius: 12,
+  },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 };
 
+// Dark Theme - User's preferred color combination
 export const darkTheme = {
   ...MD3DarkTheme,
+  name: 'dark',
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#BCAAA4',
-    secondary: '#6D4C41',
-    background: '#181818',
-    card: '#232323',
-    text: '#F5F5F5',
-    subtext: '#B0B0B0',
-    critical: '#FF8A80',
-    high: '#FFD180',
-    moderate: '#FFF59D',
-    low: '#A5D6A7',
-    accent: '#232323',
-    shadow: 'rgba(0,0,0,0.32)',
-    border: '#333', // required for navigation
-    notification: '#FFAB91', // required for navigation
-    // UserBottomTabs palette (dark variants)
-    tabBackground1: '#23231A',
-    tabBackground2: '#23231a',
-    tabBackground3: '#8B6F4E',
-    tabBackground4: '#654321',
-    tabActive: '#F5F5DC',
-    tabInactive: '#A0826D',
-    cameraGradient1: '#8B4513',
-    cameraGradient2: '#654321',
-    cameraGradient3: '#23231A',
-    cameraBorder: '#F5F5DC',
-  },
-  cardShadow: {
-    shadowColor: 'rgba(0,0,0,0.32)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.32,
-    shadowRadius: 12,
-    elevation: 8,
+    primary: '#ffb259ff', // Brighter Orange for Dark Mode
+    secondary: '#42A5F5', // Lighter Blue for Dark Mode
+    tertiary: '#66BB6A', // Lighter Green for Dark Mode
+    background: '#121212', // Dark Background
+    surface: '#1E1E1E', // Dark Surface
+    card: '#2D2D2D', // Dark Cards
+    text: '#FFFFFF', // White Text
+    subtext: '#B0B0B0', // Light Gray Subtext
+    accent: '#2A2A2A', // Dark Accent
+    tabBackground1: '#1E1E1E', // Dark Tab Background
+    tabBackground2: '#2D2D2D', // Secondary Dark Tab Background
+    low: '#1B5E20', // Dark Green for Low Priority
+    medium: '#E65100', // Dark Orange for Medium Priority
+    high: '#C62828', // Dark Red for High Priority
+    critical: '#B71C1C', // Critical Dark Red
+    onPrimary: '#000000',
+    onSecondary: '#000000',
+    onSurface: '#FFFFFF',
+    onSurfaceVariant: '#B0B0B0',
   },
   spacing: {
-    radius: 16,
     padding: 16,
-    margin: 16,
+    margin: 12,
+    radius: 12,
+  },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 };
 
@@ -95,6 +93,12 @@ export const ThemeContext = createContext({
   isDark: false,
 });
 
+export type ThemeContextType = {
+  theme: typeof lightTheme;
+  toggleTheme: () => void;
+  isDark: boolean;
+};
+
 export function useThemeContext() {
   return useContext(ThemeContext);
-} 
+}

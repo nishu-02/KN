@@ -1,307 +1,265 @@
-// Add new imports
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState } from "react";
+import { View, StyleSheet, ScrollView } from "react-native";
 import {
-  View,
   Text,
-  StyleSheet,
-  Dimensions,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import {
-  Button,
-  Switch,
-  Divider,
-  List,
   Card,
-  RadioButton,
-} from 'react-native-paper';
-// Removed TabView import
-import { Ionicons } from '@expo/vector-icons';
-import { useThemeContext } from '../../theme';
+  Switch,
+  List,
+  Button,
+  Divider,
+  IconButton,
+} from "react-native-paper";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useThemeContext } from "../../theme";
 
-type Route = { key: string; title: string };
-type ThemeContextType = {
-  theme: { colors: { primary: string; accent: string; text: string; background: string; tabInactive: string } };
-  toggleTheme: () => void;
-  isDark: boolean;
-};
+export default function SettingsScreen() {
+  const { theme, toggleTheme, isDark } = useThemeContext();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [locationEnabled, setLocationEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
-const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [error, setError] = useState<string | null>(null);
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Something went wrong: {error}</Text>
-      </View>
-    );
-  }
-  return <>{children}</>;
-};
-
-export default function SettingsScreen({ navigation }: { navigation: any }) {
-  const { theme, toggleTheme, isDark } = useThemeContext() as ThemeContextType;
-  const [autoAcceptRescues, setAutoAcceptRescues] = useState(true);
-  const [emergencyMode, setEmergencyMode] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [language, setLanguage] = useState('en');
-  const [emailNotif, setEmailNotif] = useState(true);
-  const [smsNotif, setSmsNotif] = useState(false);
-  const [dataSaver, setDataSaver] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
-
-  const NotificationSettings = useCallback(() => (
-    <ScrollView style={styles.sceneContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Notification Settings</Text>
-      <Divider style={styles.divider} />
-
-      <SectionWrapper>
+  const NotificationSettings = () => (
+    <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
+      <Card.Content>
+        <Text variant="titleMedium" style={[styles(theme).sectionTitle, { color: theme.colors.primary }]}>
+          Notifications
+        </Text>
         <List.Item
-          title="Auto-Accept Rescues"
-          left={() => <Ionicons name="notifications-outline" size={24} color="#8B4513" />}
+          title="Push Notifications"
+          description="Receive alerts for nearby rescue cases"
+          left={() => <Ionicons name="notifications-outline" size={24} color={theme.colors.primary} />}
           right={() => (
             <Switch
-              value={autoAcceptRescues}
-              onValueChange={setAutoAcceptRescues}
-              thumbColor={autoAcceptRescues ? '#8B4513' : '#D1D5DB'}
-              trackColor={{ false: '#E5E7EB', true: '#8B451380' }}
+              value={notificationsEnabled}
+              onValueChange={setNotificationsEnabled}
+              color={theme.colors.primary}
             />
           )}
         />
         <List.Item
-          title="Emergency Mode"
-          left={() => <Ionicons name="alert-circle-outline" size={24} color="#FF4444" />}
+          title="Sound Alerts"
+          description="Play sound for notifications"
+          left={() => <Ionicons name="volume-high-outline" size={24} color={theme.colors.primary} />}
           right={() => (
             <Switch
-              value={emergencyMode}
-              onValueChange={setEmergencyMode}
-              thumbColor={emergencyMode ? '#FF4444' : '#D1D5DB'}
-              trackColor={{ false: '#E5E7EB', true: '#FF444480' }}
+              value={soundEnabled}
+              onValueChange={setSoundEnabled}
+              color={theme.colors.primary}
             />
           )}
         />
         <List.Item
-          title="Email Notifications"
-          left={() => <Ionicons name="mail-outline" size={24} color="#2563EB" />}
+          title="Vibration"
+          description="Vibrate on notifications"
+          left={() => <Ionicons name="phone-portrait-outline" size={24} color={theme.colors.primary} />}
           right={() => (
             <Switch
-              value={emailNotif}
-              onValueChange={setEmailNotif}
-              thumbColor={emailNotif ? '#2563EB' : '#D1D5DB'}
-              trackColor={{ false: '#E5E7EB', true: '#2563EB80' }}
+              value={vibrationEnabled}
+              onValueChange={setVibrationEnabled}
+              color={theme.colors.primary}
             />
           )}
+        />
+      </Card.Content>
+    </Card>
+  );
+
+  const PersonalSettings = () => (
+    <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
+      <Card.Content>
+        <Text variant="titleMedium" style={[styles(theme).sectionTitle, { color: theme.colors.primary }]}>
+          Personal
+        </Text>
+        <List.Item
+          title="Edit Profile"
+          description="Update your personal information"
+          left={() => <Ionicons name="person-outline" size={24} color={theme.colors.primary} />}
+          right={() => <Ionicons name="chevron-forward" size={24} color={theme.colors.subtext} />}
         />
         <List.Item
-          title="SMS Notifications"
-          left={() => <Ionicons name="chatbubble-ellipses-outline" size={24} color="#0F766E" />}
-          right={() => (
-            <Switch
-              value={smsNotif}
-              onValueChange={setSmsNotif}
-              thumbColor={smsNotif ? '#0F766E' : '#D1D5DB'}
-              trackColor={{ false: '#E5E7EB', true: '#0F766E80' }}
-            />
-          )}
+          title="Change Password"
+          description="Update your account password"
+          left={() => <Ionicons name="lock-closed-outline" size={24} color={theme.colors.primary} />}
+          right={() => <Ionicons name="chevron-forward" size={24} color={theme.colors.subtext} />}
         />
-      </SectionWrapper>
-    </ScrollView>
-  ), [autoAcceptRescues, emergencyMode, emailNotif, smsNotif]);
+        <List.Item
+          title="Privacy Settings"
+          description="Manage your privacy preferences"
+          left={() => <Ionicons name="shield-outline" size={24} color={theme.colors.primary} />}
+          right={() => <Ionicons name="chevron-forward" size={24} color={theme.colors.subtext} />}
+        />
+      </Card.Content>
+    </Card>
+  );
 
-  const PersonalSettings = useCallback(() => (
-    <ScrollView style={styles.sceneContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Personal Info</Text>
-      <Divider style={styles.divider} />
-      <SectionWrapper>
-        <List.Item title="Email" description="john.doe@email.com" left={() => <Ionicons name="mail" size={22} color={theme.colors.primary} />} />
-        <List.Item title="Phone" description="+91-9876543210" left={() => <Ionicons name="call" size={22} color={theme.colors.primary} />} />
-        <List.Item title="Language" left={() => <Ionicons name="language-outline" size={22} color={theme.colors.primary} />} />
-        <RadioButton.Group onValueChange={setLanguage} value={language}>
-          <RadioButton.Item label="English" value="en" />
-          <RadioButton.Item label="Hindi" value="hi" />
-          <RadioButton.Item label="Spanish" value="es" />
-        </RadioButton.Group>
-      </SectionWrapper>
-    </ScrollView>
-  ), [language]);
-
-  const AccessibilitySettings = useCallback(() => (
-    <ScrollView style={styles.sceneContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Accessibility</Text>
-      <Divider style={styles.divider} />
-      <SectionWrapper>
+  const AccessibilitySettings = () => (
+    <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
+      <Card.Content>
+        <Text variant="titleMedium" style={[styles(theme).sectionTitle, { color: theme.colors.primary }]}>
+          Accessibility
+        </Text>
         <List.Item
           title="Theme Mode"
-          description={isDark ? 'Dark Mode' : 'Light Mode'}
-          left={() => <Ionicons name={isDark ? 'moon' : 'sunny'} size={24} color={theme.colors.primary} />}
+          description={isDark ? "Dark Mode" : "Light Mode"}
+          left={() => <Ionicons name="color-palette-outline" size={24} color={theme.colors.primary} />}
           right={() => (
             <Switch
               value={isDark}
               onValueChange={toggleTheme}
-              thumbColor={isDark ? theme.colors.primary : theme.colors.accent}
-              trackColor={{ false: '#E5E7EB', true: theme.colors.primary + '80' }}
+              color={theme.colors.primary}
             />
           )}
         />
         <List.Item
-          title="Data Saver Mode"
-          left={() => <Ionicons name="cloud-outline" size={22} color="#059669" />}
+          title="Location Services"
+          description="Allow access to your location"
+          left={() => <Ionicons name="location-outline" size={24} color={theme.colors.primary} />}
           right={() => (
             <Switch
-              value={dataSaver}
-              onValueChange={setDataSaver}
-              thumbColor={dataSaver ? '#059669' : '#D1D5DB'}
-              trackColor={{ false: '#E5E7EB', true: '#05966980' }}
+              value={locationEnabled}
+              onValueChange={setLocationEnabled}
+              color={theme.colors.primary}
             />
           )}
         />
-      </SectionWrapper>
-    </ScrollView>
-  ), [isDark, dataSaver]);
-
-  const PrivacySettings = useCallback(() => (
-    <ScrollView style={styles.sceneContainer}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Privacy & Security</Text>
-      <Divider style={styles.divider} />
-      <SectionWrapper>
         <List.Item
-          title="Privacy Mode"
-          description={isPrivate ? 'Enabled' : 'Disabled'}
-          left={() => <Ionicons name="lock-closed-outline" size={24} color={theme.colors.primary} />}
-          right={() => (
-            <Switch
-              value={isPrivate}
-              onValueChange={setIsPrivate}
-              thumbColor={isPrivate ? theme.colors.primary : '#D1D5DB'}
-              trackColor={{ false: '#E5E7EB', true: theme.colors.primary + '80' }}
-            />
-          )}
+          title="Large Text"
+          description="Increase text size for better readability"
+          left={() => <Ionicons name="text-outline" size={24} color={theme.colors.primary} />}
+          right={() => <Ionicons name="chevron-forward" size={24} color={theme.colors.subtext} />}
         />
-      </SectionWrapper>
-    </ScrollView>
-  ), [isPrivate]);
-
-  // Section definitions (must be after all component definitions)
-  const sections = [
-    { key: 'notifications', title: 'Notifications', content: NotificationSettings },
-    { key: 'personal', title: 'Personal', content: PersonalSettings },
-    { key: 'accessibility', title: 'Accessibility', content: AccessibilitySettings },
-    { key: 'privacy', title: 'Privacy', content: PrivacySettings },
-  ];
-
-  const SectionWrapper = ({ children }: { children: React.ReactNode }) => (
-    <Card style={styles.card}>
-      <Card.Content>{children}</Card.Content>
+      </Card.Content>
     </Card>
   );
 
-  const handleLogout = useCallback(() => {
-    navigation.navigate('SignIn');
-  }, [navigation]);
+  const PrivacySecuritySettings = () => (
+    <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
+      <Card.Content>
+        <Text variant="titleMedium" style={[styles(theme).sectionTitle, { color: theme.colors.primary }]}>
+          Privacy & Security
+        </Text>
+        <List.Item
+          title="Data Usage"
+          description="Manage how your data is used"
+          left={() => <Ionicons name="analytics-outline" size={24} color={theme.colors.primary} />}
+          right={() => <Ionicons name="chevron-forward" size={24} color={theme.colors.subtext} />}
+        />
+        <List.Item
+          title="App Permissions"
+          description="Manage app permissions"
+          left={() => <Ionicons name="settings-outline" size={24} color={theme.colors.primary} />}
+          right={() => <Ionicons name="chevron-forward" size={24} color={theme.colors.subtext} />}
+        />
+        <List.Item
+          title="Two-Factor Authentication"
+          description="Add extra security to your account"
+          left={() => <Ionicons name="key-outline" size={24} color={theme.colors.primary} />}
+          right={() => <Ionicons name="chevron-forward" size={24} color={theme.colors.subtext} />}
+        />
+      </Card.Content>
+    </Card>
+  );
 
-  return (
-    <ErrorBoundary>
-      <ScrollView style={[styles.container, { paddingTop: 1 }]}> 
-        {sections.map(({ key, title, content: Content }) => (
-          <Card key={key} style={styles.card}>
-            <List.Accordion
-              title={title}
-              expanded={expanded === key}
-              onPress={() => setExpanded(expanded === key ? null : key)}
-              left={props => <Ionicons name={
-                key === 'notifications' ? 'notifications-outline' :
-                key === 'personal' ? 'person-outline' :
-                key === 'accessibility' ? 'eye-outline' :
-                'lock-closed-outline'
-              } size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />}
-            >
-              <Content />
-            </List.Accordion>
-          </Card>
-        ))}
+  const LogoutSection = () => (
+    <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
+      <Card.Content>
         <Button
           mode="contained"
-          onPress={handleLogout}
-          style={styles.logoutButton}
-          labelStyle={styles.logoutButtonText}
-          contentStyle={styles.logoutButtonContent}
+          buttonColor="#FF4444"
+          textColor="white"
+          style={styles(theme).logoutButton}
+          icon="log-out-outline"
+          onPress={() => {
+            // Handle logout logic here
+            console.log("Logout pressed");
+          }}
         >
           Log Out
         </Button>
+      </Card.Content>
+    </Card>
+  );
+
+  const sections = [
+    { title: "Notifications", component: NotificationSettings },
+    { title: "Personal", component: PersonalSettings },
+    { title: "Accessibility", component: AccessibilitySettings },
+    { title: "Privacy & Security", component: PrivacySecuritySettings },
+    { title: "Account", component: LogoutSection },
+  ];
+
+  return (
+    <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
+      {/* Header */}
+      <LinearGradient
+        colors={[theme.colors.card, theme.colors.background]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles(theme).header}
+      >
+        <View style={styles(theme).headerContent}>
+          <Text style={[styles(theme).karunaTitle, { color: theme.colors.primary }]}>Settings</Text>
+        </View>
+      </LinearGradient>
+
+      {/* Settings Content */}
+      <ScrollView style={styles(theme).content} showsVerticalScrollIndicator={false}>
+        {sections.map((section, index) => (
+          <View key={index}>
+            {section.component()}
+            {index < sections.length - 1 && <View style={styles(theme).sectionSpacing} />}
+          </View>
+        ))}
       </ScrollView>
-    </ErrorBoundary>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 44 : 32,
   },
-  sceneContainer: {
-    paddingHorizontal: 15,
+  header: {
+    paddingHorizontal: theme.spacing.padding,
+    paddingTop: 40,
+    paddingBottom: theme.spacing.padding,
+    borderBottomLeftRadius: theme.spacing.radius,
+    borderBottomRightRadius: theme.spacing.radius,
+    elevation: 8,
+    zIndex: 10,
+    backgroundColor: theme.colors.tabBackground1,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  karunaTitle: {
+    fontWeight: "bold",
+    fontSize: 28,
+    fontFamily: "cursive",
+    letterSpacing: 1,
+  },
+  content: {
     flex: 1,
-    padding: 16,
-    backgroundColor: 'rgba(255,0,0,0.1)', // Temporary to inspect padding areas
+    padding: theme.spacing.padding,
+  },
+  sectionCard: {
+    borderRadius: theme.spacing.radius,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 16,
+    fontWeight: "bold",
   },
-  divider: {
-    backgroundColor: '#E5E7EB',
-    height: 1,
-    marginBottom: 12,
-  },
-  tabBar: {
-    backgroundColor: '#FFF',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  tabIndicator: {
-    height: 3,
-    borderRadius: 2,
-  },
-  tabLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  card: {
-    marginVertical: 12,
-    borderRadius: 12,
-    elevation: 2,
-    // backgroundColor: 'white',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+  sectionSpacing: {
+    height: 16,
   },
   logoutButton: {
-    margin: 24,
     borderRadius: 8,
-    backgroundColor: '#DC2626',
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  logoutButtonContent: {
-    paddingVertical: 10,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#DC2626',
-    textAlign: 'center',
-    fontWeight: '500',
+    marginTop: 8,
   },
 });

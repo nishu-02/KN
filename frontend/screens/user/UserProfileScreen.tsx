@@ -29,7 +29,6 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeContext } from '../../theme';
-import { TabView, SceneMap, TabBar, TabBarProps } from 'react-native-tab-view';
 import SettingsScreen from './SettingsScreen';
 import { useNavigation } from '@react-navigation/native';
 
@@ -240,7 +239,7 @@ const SectionCard: React.FC<{
 );
 
 export default function UserProfileScreen() {
-  const { theme, toggleTheme, isDark } = useThemeContext();
+  const { theme,  } = useThemeContext();
   const [notificationRange, setNotificationRange] = useState("25");
   const [isPrivate, setIsPrivate] = useState(false);
   const [language, setLanguage] = useState("english");
@@ -478,9 +477,9 @@ export default function UserProfileScreen() {
               { icon: "settings-outline", label: "Settings", onPress: handleSettings },
             ].map(({ icon, label, onPress }, index) => (
               <TouchableOpacity key={index} style={themedStyles.actionButton} onPress={onPress}>
-                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={theme.colors.primary} />
+                  <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={theme.colors.primary} />
                 <Text style={themedStyles.actionText}>{label}</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
             ))}
           </View>
         </View>
