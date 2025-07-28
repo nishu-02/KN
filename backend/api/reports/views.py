@@ -13,11 +13,12 @@ from django.core.exceptions import ValidationError
 from .models import InjuryReport, ExpoPushToken
 from ngo.models import NGO
 from .services.gemini_client import analyze_animal_injury
-from .serializers import InjuryReportSerializer
+from .serializers import InjuryReportSerializer, InjuryReportCreateSerializer, ExpoPushTokenSerializer
 from users.models import UserProfile
 from .services.appwrite_service import create_appwrite_report
 from reports.services.appwrite_service import create_appwrite_notification, upload_image_to_appwrite, get_image_url
 from reports.services.geo import get_nearby_ngos, get_nearby_reports, get_nearby_volunteers
+from reports.services.reverse_geocode import reverse_geocode
 from notifications.utils import send_and_log_notification
 from notifications.notification_triggers import notification_triggers
 from .notification import notify_user
@@ -65,6 +66,16 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                 validate_location_data(location)
                 lat = float(location['latitude'])
                 lon = float(location['longitude'])
+                
+                # Get human-readable address from coordinates
+                readable_address = reverse_geocode(lat, lon)
+                if readable_address:
+                    location['address'] = readable_address
+                    reports_logger.info(f"Reverse geocoded address: {readable_address}")
+                else:
+                    location['address'] = f"Near {lat:.4f}, {lon:.4f}"
+                    reports_logger.warning(f"Reverse geocoding failed for {lat}, {lon}")
+                    
             except Exception as e:
                 return Response(
                     {"error": str(e)}, 
@@ -83,13 +94,16 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_502_BAD_GATEWAY
                 )
 
+            # Extract comprehensive AI analysis data
+            ai_result = ai_response.get('result', {})
+
             # Upload image to storage
             file_like_object = io.BytesIO(image_bytes)
             file_like_object.name = image_file.name
             file_id = upload_image_to_appwrite(file_like_object)
             image_url = get_image_url(file_id)
 
-            # Create report with database transaction
+            # Create report with comprehensive AI data
             with transaction.atomic():
                 report = InjuryReport.objects.create(
                     report_id=uuid.uuid4(),
@@ -98,7 +112,48 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                     location=json.dumps(location),  # Store as JSON string
                     latitude=lat,
                     longitude=lon,
-                    report_data=ai_response.get('result'),
+                    
+                    # AI Analysis - Basic information
+                    title=ai_result.get('title', 'Animal Rescue Report'),
+                    description=ai_result.get('description', ''),
+                    species=ai_result.get('species', 'Unknown'),
+                    breed=ai_result.get('breed', 'Unknown'),
+                    age=ai_result.get('age', 'Unknown'),
+                    gender=ai_result.get('gender', 'Unknown'),
+                    weight=ai_result.get('weight', 'Unknown'),
+                    
+                    # Health assessment
+                    severity=ai_result.get('severity', 'Unknown'),
+                    injury_summary=ai_result.get('injurySummary', ''),
+                    symptoms=ai_result.get('symptoms', []),
+                    urgency=ai_result.get('urgency', 'Unknown'),
+                    behavior=ai_result.get('behavior', 'Unknown'),
+                    context=ai_result.get('context', 'Unknown'),
+                    vet_timeline=ai_result.get('vetTimeline', 'Unknown'),
+                    
+                    # AI confidence and scoring
+                    ai_confidence=ai_result.get('aiConfidence', 'Medium'),
+                    severity_score=ai_result.get('severityScore'),
+                    urgency_score=ai_result.get('urgencyScore'),
+                    behavior_score=ai_result.get('behaviorScore'),
+                    age_score=ai_result.get('ageScore'),
+                    confidence_score=ai_result.get('confidenceScore'),
+                    
+                    # Care recommendations
+                    care_tips=ai_result.get('careTips', []),
+                    immediate_actions=ai_result.get('actions', []),
+                    environment_factors=ai_result.get('environmentFactors', ''),
+                    
+                    # Vital signs
+                    vital_signs=ai_result.get('vitalSigns', {
+                        'temperature': 'Unknown',
+                        'heartRate': 'Unknown',
+                        'breathing': 'Unknown'
+                    }),
+                    
+                    # Store complete AI analysis and legacy data
+                    ai_analysis=ai_result,
+                    report_data=ai_result  # For backward compatibility
                 )
 
                 # Create Appwrite report
