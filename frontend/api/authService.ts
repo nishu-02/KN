@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppwriteService from '../appwrite/service';
-
-const API_BASE = 'http://192.168.1.6:8000'; // Updated backend URL
+import { API_BASE_URL } from './config';
 
 interface LoginResponse {
   success: boolean;
@@ -12,7 +11,7 @@ interface LoginResponse {
   };
   user_info?: {
     user_id: string;
-    account_type: 'user' | 'ngo' | 'new';
+    account_type: 'user' | 'ngo' | 'new_user';
     entity_id?: string;
     name: string;
     email: string;
@@ -22,6 +21,7 @@ interface LoginResponse {
     $id: string;
     email: string;
     name: string;
+    emailVerification?: boolean;
   };
   error?: string;
 }
@@ -31,11 +31,16 @@ interface RegisterResponse {
   appwrite_jwt?: string;
   user_info?: {
     user_id: string;
-    account_type: 'user' | 'ngo' | 'new';
+    account_type: 'user' | 'ngo' | 'new_user';
     entity_id?: string;
     name: string;
     email: string;
     verified: boolean;
+  };
+  appwrite_user?: {
+    $id: string;
+    email: string;
+    name: string;
   };
   error?: string;
 }
@@ -97,221 +102,224 @@ class AuthService {
     }
   }
 
+  /**
+   * Login user with Appwrite and get account type from Django
+   */
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      console.log('Attempting login with backend...');
-      const response = await fetch(`${API_BASE}/auth/login/`, {
+      console.log('Starting login process for:', email);
+      
+      // Step 1: Authenticate with Appwrite directly
+      const userData = await AppwriteService.login({ email, password });
+      console.log('Appwrite login successful:', userData);
+      
+      // Step 2: Get JWT token for API authentication
+      const jwtToken = await AppwriteService.getValidJWT();
+      if (!jwtToken) {
+        throw new Error('Failed to get authentication token');
+      }
+      console.log('JWT token retrieved');
+      
+      // Step 3: Query Django backend for account type using appwrite_user_id
+      const accountTypeResponse = await fetch(`${API_BASE_URL}/users/auth/get_type`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`,
         },
         body: JSON.stringify({
-          email: email.trim(),
-          password: password.trim()
+          appwrite_user_id: userData.$id
         })
       });
-
-      console.log('Login response status:', response.status);
-      const data: LoginResponse = await response.json();
-      console.log('Login response data:', data);
-
-      if (data.success && data.appwrite_jwt && data.user_info) {
-        await this.saveAuth(data.appwrite_jwt, data.user_info.account_type, data.user_info);
-        return data;
-      } else {
-        return {
-          success: false,
-          error: data.error || 'Login failed'
-        };
+      
+      const accountData = await accountTypeResponse.json();
+      console.log('Django account type response:', accountData);
+      
+      if (!accountTypeResponse.ok) {
+        throw new Error(accountData.error || 'Failed to determine account type');
       }
+      
+      // Step 4: Prepare user info object
+      const userInfo = {
+        user_id: userData.$id,
+        account_type: accountData.account_type || 'new_user',
+        entity_id: accountData.entity_id,
+        name: userData.name || accountData.name,
+        email: userData.email,
+        verified: userData.emailVerification || false,
+        ...accountData.entity_data
+      };
+      
+      // Step 5: Save authentication state
+      await this.saveAuth(jwtToken, userInfo.account_type, userInfo);
+      
+      return {
+        success: true,
+        appwrite_jwt: jwtToken,
+        session: {
+          session_id: 'current',
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+        },
+        user_info: userInfo,
+        appwrite_user: userData
+      };
+      
     } catch (error: any) {
-      console.error('AuthService :: login ::', error);
+      console.error('Login error:', error);
       return {
         success: false,
-        error: 'Network error. Please check your connection.'
+        error: error.message || 'Login failed'
       };
     }
   }
 
+  /**
+   * Register new user with Appwrite and create profile in Django
+   */
   async register(email: string, password: string, name: string, accountType: 'user' | 'ngo'): Promise<RegisterResponse> {
     try {
+      console.log('Starting registration process for:', email, accountType);
+      
       // Step 1: Create Appwrite account
-      console.log('Creating Appwrite account for:', email);
-      await AppwriteService.createAccount({ email, password, name });
+      const user = await AppwriteService.createAccount({ email, password, name });
+      console.log('Appwrite account created:', user);
       
-      // Step 2: Login through backend to get proper JWT
-      console.log('Logging in through backend to get JWT...');
-      const loginResult = await this.login(email, password);
+      // Step 2: Login to create session and get JWT
+      const userData = await AppwriteService.login({ email, password });
+      console.log('Session created for new user');
       
-      if (!loginResult.success) {
-        return {
-          success: false,
-          error: loginResult.error || 'Failed to authenticate after account creation'
-        };
+      // Step 3: Get JWT token
+      const jwtToken = await AppwriteService.getValidJWT();
+      if (!jwtToken) {
+        throw new Error('Failed to get authentication token');
       }
-
-      // Step 3: If NGO, register with backend using the JWT from login
-      if (accountType === 'ngo') {
-        console.log('Registering NGO with backend...');
-        
-        const ngoResponse = await fetch(`${API_BASE}/ngo/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${loginResult.appwrite_jwt}`,
-          },
-          body: JSON.stringify({
-            name: name.trim(),
-            email: email.trim(),
-            phone: "",
-            description: "NGO registered through KarunaNidhan app",
-            category: "animal",
-            latitude: "0.0",
-            longitude: "0.0",
-            website: "",
-          })
-        });
-
-        console.log('NGO registration response status:', ngoResponse.status);
-        
-        if (!ngoResponse.ok) {
-          const errorData = await ngoResponse.json().catch(() => ({}));
-          console.error('NGO registration error:', errorData);
-          return {
-            success: false,
-            error: errorData.message || `NGO registration failed: ${ngoResponse.status}`
-          };
+      console.log('JWT token created for new user');
+      
+      // Step 4: Register minimal profile data with Django backend
+      const registrationResponse = await fetch(`${API_BASE_URL}/users/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`,
+        },
+        body: JSON.stringify({
+          appwrite_user_id: userData.$id,
+          email: userData.email,
+          name: userData.name,
+          account_type: accountType
+        })
+      });
+      
+      const registrationData = await registrationResponse.json();
+      console.log('Django registration response:', registrationData);
+      
+      if (!registrationResponse.ok) {
+        // If Django registration fails, we should clean up the Appwrite session
+        try {
+          await AppwriteService.logout();
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup Appwrite session after Django registration failure:', cleanupError);
         }
-
-        // Return success with NGO account type
-        const userInfo = {
-          user_id: loginResult.user_info?.user_id || '',
-          account_type: 'ngo' as const,
-          name: name,
-          email: email,
-          verified: true
-        };
-        
-        await this.saveAuth(loginResult.appwrite_jwt!, 'ngo', userInfo);
-        
-        return {
-          success: true,
-          appwrite_jwt: loginResult.appwrite_jwt,
-          user_info: userInfo
-        };
-      } else {
-        // For user registration, just return the login result
-        const userInfo = {
-          user_id: loginResult.user_info?.user_id || '',
-          account_type: 'user' as const,
-          name: name,
-          email: email,
-          verified: true
-        };
-        
-        await this.saveAuth(loginResult.appwrite_jwt!, 'user', userInfo);
-        
-        return {
-          success: true,
-          appwrite_jwt: loginResult.appwrite_jwt,
-          user_info: userInfo
-        };
+        throw new Error(registrationData.error || 'Profile creation failed');
       }
+      
+      // Step 5: Prepare user info object
+      const userInfo = {
+        user_id: userData.$id,
+        account_type: accountType,
+        entity_id: registrationData.entity_id,
+        name: userData.name,
+        email: userData.email,
+        verified: false
+      };
+      
+      // Step 6: Save authentication state
+      await this.saveAuth(jwtToken, accountType, userInfo);
+      
+      return {
+        success: true,
+        appwrite_jwt: jwtToken,
+        user_info: userInfo,
+        appwrite_user: userData
+      };
+      
     } catch (error: any) {
-      console.error('AuthService :: register ::', error);
+      console.error('Registration error:', error);
       return {
         success: false,
-        error: error.message || 'Registration failed. Please try again.'
+        error: error.message || 'Registration failed'
       };
     }
   }
 
+  /**
+   * Logout user and clear all stored data
+   */
   async logout(): Promise<void> {
     try {
-      // Call backend logout endpoint if needed
-      if (this.jwt) {
-        await fetch(`${API_BASE}/auth/logout/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.jwt}`,
-            'Content-Type': 'application/json',
-          }
-        });
-      }
+      // Logout from Appwrite
+      await AppwriteService.logout();
     } catch (error) {
-      console.warn('Logout API call failed, but clearing local auth:', error);
+      console.warn('Appwrite logout failed:', error);
     } finally {
+      // Always clear local auth data
       await this.clearAuth();
     }
   }
 
-  async makeAPICall(endpoint: string, options: RequestInit = {}): Promise<any> {
+  /**
+   * Check if user is currently authenticated
+   */
+  async checkAuthStatus(): Promise<{
+    isLoggedIn: boolean;
+    userInfo?: any;
+    accountType?: string;
+  }> {
     try {
-      if (!this.jwt) {
-        throw new Error('No authentication token found');
+      // Check if we have local auth data
+      if (!this.jwt || !this.userInfo) {
+        return { isLoggedIn: false };
       }
 
-      console.log('Making API call to:', endpoint);
-      console.log('Using JWT:', this.jwt.substring(0, 20) + '...');
-
-      const response = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers: {
-          'Authorization': `Bearer ${this.jwt}`,
-          'Content-Type': 'application/json',
-          ...options.headers
-        }
-      });
-
-      console.log('API call response status:', response.status);
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'API call failed');
+      // Verify session with Appwrite
+      const currentUser = await AppwriteService.getCurrentUser();
+      if (!currentUser) {
+        await this.clearAuth();
+        return { isLoggedIn: false };
       }
 
-      return { success: true, data };
-    } catch (error: any) {
-      console.error('API call error:', error);
-      return { success: false, error: error.message };
+      return {
+        isLoggedIn: true,
+        userInfo: this.userInfo,
+        accountType: this.accountType
+      };
+    } catch (error) {
+      console.warn('Auth status check failed:', error);
+      await this.clearAuth();
+      return { isLoggedIn: false };
     }
   }
 
-  get isLoggedIn(): boolean {
-    return !!this.jwt && !!this.accountType;
-  }
-
-  get getAccountType(): string | null {
-    return this.accountType;
-  }
-
-  get getUserInfo(): any {
-    return this.userInfo;
-  }
-
+  /**
+   * Get current JWT token
+   */
   get getJWT(): string | null {
     return this.jwt;
   }
 
-  async checkAuthStatus(): Promise<{ isLoggedIn: boolean; accountType?: string; userInfo?: any }> {
-    try {
-      const jwt = await AsyncStorage.getItem('appwrite_jwt');
-      const accountType = await AsyncStorage.getItem('account_type');
-      const userInfo = await AsyncStorage.getItem('user_info');
+  /**
+   * Get current account type
+   */
+  get getAccountType(): string | null {
+    return this.accountType;
+  }
 
-      if (jwt && accountType) {
-        return {
-          isLoggedIn: true,
-          accountType,
-          userInfo: userInfo ? JSON.parse(userInfo) : null
-        };
-      }
-      return { isLoggedIn: false };
-    } catch (error) {
-      return { isLoggedIn: false };
-    }
+  /**
+   * Get current user info
+   */
+  get getUserInfo(): any {
+    return this.userInfo;
   }
 }
 
-export default new AuthService(); 
+export default new AuthService();

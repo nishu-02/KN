@@ -96,7 +96,7 @@ export const createUserAccount = createAsyncThunk(
       }
 
       return {
-        user: result.user_info,
+        user: result.appwrite_user,
         token: result.appwrite_jwt,
         accountType: result.user_info?.account_type,
         userInfo: result.user_info

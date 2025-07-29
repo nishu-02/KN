@@ -1,5 +1,17 @@
 """
-URL configuration for api project.
+URL configuration for urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('reports/', include('reports.urls')),
+    path('ngo/', include('ngo.urls')),
+    path('users/', include('users.urls')),
+    path('notifications/', include('notifications.urls')),
+
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
+    path('silk/', include('silk.urls', namespace='silk')),
+]
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/4.2/topics/http/urls/
@@ -17,6 +29,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from utils.auth_helpers import get_bearer_token, appwrite_login
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -42,4 +55,6 @@ def health_check(request):
 
 urlpatterns += [
     path('health/', health_check, name='health-check'),
+    path('auth/get-bearer-token/', get_bearer_token, name='get-bearer-token'),
+    path('auth/login/', appwrite_login, name='appwrite-login'),
 ]
