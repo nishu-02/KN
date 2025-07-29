@@ -1,11 +1,12 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import AppwriteService from '../../../appwrite/service';
+import AuthService from '../../../api/authService';
 import * as Notifications from 'expo-notifications';
 
 interface User {
   $id: string;
   name: string;
   email: string;
+  account_type?: string;
 }
 
 interface AuthState {
@@ -13,6 +14,7 @@ interface AuthState {
   authenticated: boolean;
   user: User | null;
   token: string | null;
+  accountType: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -22,6 +24,7 @@ const initialState: AuthState = {
   authenticated: false,
   user: null,
   token: null,
+  accountType: null,
   loading: false,
   error: null,
 };
@@ -30,16 +33,15 @@ export const initSession = createAsyncThunk(
   'auth/initSession', 
   async (_, thunkAPI) => {
     try {
-      // Validate if stored session is still valid
-      const isValid = await AppwriteService.validateSession();
-      if (!isValid) {
+      const authStatus = await AuthService.checkAuthStatus();
+      if (!authStatus.isLoggedIn) {
         throw new Error('No valid session found');
       }
       
-      const user = await AppwriteService.getCurrentUser();
       return {
-        user,
-        token: AppwriteService.jwtToken
+        user: authStatus.userInfo,
+        token: AuthService.getJWT,
+        accountType: authStatus.accountType
       };
     } catch (err: any) {
       throw err.message || 'Session check failed';
@@ -51,10 +53,17 @@ export const loginUser = createAsyncThunk(
   'auth/login',
   async ({ email, password }: { email: string; password: string }, thunkAPI) => {
     try {
-      const user = await AppwriteService.login({ email, password });
+      const result = await AuthService.login(email, password);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Login failed');
+      }
+
       return {
-        user,
-        token: AppwriteService.jwtToken
+        user: result.appwrite_user,
+        token: result.appwrite_jwt,
+        accountType: result.user_info?.account_type,
+        userInfo: result.user_info
       };
     } catch (err: any) {
       throw err.message || 'Login failed';
@@ -66,7 +75,7 @@ export const logoutUser = createAsyncThunk(
   'auth/logout', 
   async (_, thunkAPI) => {
     try {
-      await AppwriteService.logout();
+      await AuthService.logout();
       return;
     } catch (err: any) {
       // Log the error but don't fail the logout process
@@ -78,10 +87,20 @@ export const logoutUser = createAsyncThunk(
 
 export const createUserAccount = createAsyncThunk(
   'auth/createAccount',
-  async ({ email, password, name }: { email: string; password: string; name: string }, thunkAPI) => {
+  async ({ email, password, name, accountType }: { email: string; password: string; name: string; accountType: 'user' | 'ngo' }, thunkAPI) => {
     try {
-      const account = await AppwriteService.createAccount({ email, password, name });
-      return account;
+      const result = await AuthService.register(email, password, name, accountType);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Account creation failed');
+      }
+
+      return {
+        user: result.user_info,
+        token: result.appwrite_jwt,
+        accountType: result.user_info?.account_type,
+        userInfo: result.user_info
+      };
     } catch (err: any) {
       throw err.message || 'Account creation failed';
     }
@@ -123,6 +142,7 @@ const authSlice = createSlice({
     clearAuth(state) {
       state.user = null;
       state.token = null;
+      state.accountType = null;
       state.authenticated = false;
       state.error = null;
     },
@@ -130,7 +150,7 @@ const authSlice = createSlice({
       state.user = action.payload;
       if (action.payload) {
         state.authenticated = true;
-        state.token = AppwriteService.jwtToken;
+        state.token = AuthService.getJWT;
       }
     },
     setInitialized(state, action: PayloadAction<boolean>) {
@@ -148,6 +168,7 @@ const authSlice = createSlice({
         state.authenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.accountType = action.payload.accountType;
         state.loading = false;
         state.error = null;
       })
@@ -156,6 +177,7 @@ const authSlice = createSlice({
         state.authenticated = false;
         state.user = null;
         state.token = null;
+        state.accountType = null;
         state.loading = false;
         state.error = null; // Don't show error for failed init
       })
@@ -168,6 +190,7 @@ const authSlice = createSlice({
         state.authenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.accountType = action.payload.accountType;
         state.loading = false;
         state.error = null;
       })
@@ -177,6 +200,7 @@ const authSlice = createSlice({
         state.authenticated = false;
         state.user = null;
         state.token = null;
+        state.accountType = null;
       })
       // LOGOUT
       .addCase(logoutUser.pending, (state) => {
@@ -186,6 +210,7 @@ const authSlice = createSlice({
         state.authenticated = false;
         state.user = null;
         state.token = null;
+        state.accountType = null;
         state.loading = false;
         state.error = null;
       })
@@ -194,6 +219,7 @@ const authSlice = createSlice({
         state.authenticated = false;
         state.user = null;
         state.token = null;
+        state.accountType = null;
         state.loading = false;
         state.error = null;
       })
@@ -202,7 +228,11 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(createUserAccount.fulfilled, (state) => {
+      .addCase(createUserAccount.fulfilled, (state, action) => {
+        state.authenticated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        state.accountType = action.payload.accountType;
         state.loading = false;
         state.error = null;
       })

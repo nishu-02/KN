@@ -1,11 +1,9 @@
 import React, { useState } from "react";
 import { View, StyleSheet, SafeAreaView, TouchableOpacity, Alert } from "react-native";
-import { FAB } from "react-native-paper";
-import { LinearGradient } from "expo-linear-gradient";
+import { FAB, Surface, useTheme } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-
 
 import UserHomeScreen from "../user/UserHomeScreen";
 import DonationsScreen from "../user/DonationsScreen";
@@ -16,6 +14,7 @@ import ProfileScreen from "../user/UserProfileScreen";
 export default function UserBottomTabs() {
   const [index, setIndex] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
+  const theme = useTheme();
 
   const routes = [
     { key: "home", icon: "home" },
@@ -40,15 +39,9 @@ export default function UserBottomTabs() {
     }
   };
 
-  // const handleCameraPress = () => {
-  //   setShowCamera(true);
-  //   setTimeout(() => setShowCamera(false), 100);
-  // };
-
-  // If you have a navigation type, import it and use it here. Otherwise, use 'any' as a quick fix:
   const navigation = useNavigation<any>();
 
-const handleCameraPress = async () => {
+  const handleCameraPress = async () => {
     // Request camera permissions
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
@@ -80,86 +73,70 @@ const handleCameraPress = async () => {
     <View style={styles.mainContainer}>
       <View style={styles.contentContainer}>{renderScene()}</View>
 
-      <View style={styles.bottomTabContainer}>
-        <LinearGradient
-          colors={["#F5F5DC", "#DEB887", "#D2B48C", "#CD853F"]}
-          style={styles.tabBarGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.tabBarContent}>
-            <TouchableOpacity
-              style={styles.tabItemTouchable}
-              onPress={() => setIndex(0)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={index === 0 ? "home" : "home-outline"}
-                size={26}
-                color={index === 0 ? "#8B4513" : "#A0826D"}
-              />
-              {index === 0 && <View style={styles.activeDot} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.tabItemTouchable}
-              onPress={() => setIndex(1)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={index === 1 ? "heart" : "heart-outline"}
-                size={26}
-                color={index === 1 ? "#8B4513" : "#A0826D"}
-              />
-              {index === 1 && <View style={styles.activeDot} />}
-            </TouchableOpacity>
-
-            <View style={styles.cameraSpace} />
-
-            <TouchableOpacity
-              style={styles.tabItemTouchable}
-              onPress={() => setIndex(2)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={index === 2 ? "people" : "people-outline"}
-                size={26}
-                color={index === 2 ? "#8B4513" : "#A0826D"}
-              />
-              {index === 2 && <View style={styles.activeDot} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.tabItemTouchable}
-              onPress={() => setIndex(3)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={index === 3 ? "person" : "person-outline"}
-                size={26}
-                color={index === 3 ? "#8B4513" : "#A0826D"}
-              />
-              {index === 3 && <View style={styles.activeDot} />}
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-
-        {/* Floating Camera Button */}
-        <View style={styles.cameraButtonContainer}>
-          <LinearGradient
-            colors={["#D2691E", "#8B4513", "#654321"]}
-            style={styles.cameraGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+      {/* Bottom Navigation with Centered Camera */}
+      <Surface style={styles.bottomNavigation} elevation={4}>
+        <View style={styles.navContent}>
+          {/* First two tabs */}
+          <TouchableOpacity
+            style={[styles.navItem, index === 0 && styles.navItemActive]}
+            onPress={() => setIndex(0)}
+            activeOpacity={0.7}
           >
-            <FAB
-              icon={() => <Ionicons name="camera" size={25} color="#F5F5DC" />}
-              onPress={handleCameraPress}
-              style={styles.cameraFab}
+            <Ionicons
+              name={index === 0 ? "home" as any : "home-outline" as any}
+              size={24}
+              color={index === 0 ? theme.colors.primary : theme.colors.onSurfaceVariant}
             />
-          </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navItem, index === 1 && styles.navItemActive]}
+            onPress={() => setIndex(1)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={index === 1 ? "heart" as any : "heart-outline" as any}
+              size={24}
+              color={index === 1 ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+
+          {/* Centered Camera Button */}
+          <View style={styles.cameraContainer}>
+            <FAB
+              icon={() => <Ionicons name="camera" size={24} color={theme.colors.onPrimary} />}
+              onPress={handleCameraPress}
+              style={[styles.cameraFab, { backgroundColor: theme.colors.primary }]}
+              size="normal"
+            />
+          </View>
+
+          {/* Last two tabs */}
+          <TouchableOpacity
+            style={[styles.navItem, index === 2 && styles.navItemActive]}
+            onPress={() => setIndex(2)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={index === 2 ? "people" as any : "people-outline" as any}
+              size={24}
+              color={index === 2 ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navItem, index === 3 && styles.navItemActive]}
+            onPress={() => setIndex(3)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={index === 3 ? "person" as any : "person-outline" as any}
+              size={24}
+              color={index === 3 ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
         </View>
-      </View>
+      </Surface>
 
       <SafeAreaView style={styles.safeArea} />
     </View>
@@ -169,86 +146,54 @@ const handleCameraPress = async () => {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: "transparent", // Fully transparent main container
+    backgroundColor: "#f5f5f5",
   },
   contentContainer: {
     flex: 1,
-    backgroundColor: "transparent", // Content shows through
-    // Remove bottom padding so content goes full height
   },
-  bottomTabContainer: {
+  bottomNavigation: {
     position: "absolute",
-    bottom: 40,
-    left: 20,
-    right: 20,
-    zIndex: 1000,
-    height: 90,
-    justifyContent: "center",
+    height: 75,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+    paddingVertical: 8,
   },
-  tabBarGradient: {
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: "rgba(139, 69, 19, 0.1)",
-    shadowColor: "#8B4513",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 25,
-  },
-  tabBarContent: {
+  navContent: {
     flexDirection: "row",
+    justifyContent: "space-around",
     alignItems: "center",
-    justifyContent: "space-evenly",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    height: 70,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  tabItemTouchable: {
+  navItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 4,
   },
-  cameraSpace: {
-    width: 70,
-    flex: 2,
+  navItemActive: {
+    backgroundColor: "rgba(98, 0, 238, 0.08)",
   },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#8B4513",
-    marginTop: 4,
-  },
-  cameraButtonContainer: {
-    position: "absolute",
-    bottom: 35,
-    left: "50%",
-    transform: [{ translateX: -35 }],
-    zIndex: 1001,
-  },
-  cameraGradient: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: "center",
+  cameraContainer: {
+    
     alignItems: "center",
-    borderWidth: 4,
-    borderColor: "#F5F5DC",
-    shadowColor: "#8B4513",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 15,
+    justifyContent: "center",
+    marginTop: -50, // Pull camera button up to overlap
   },
   cameraFab: {
-    backgroundColor: "transparent",
-    // width: 62,
-    alignItems: "center",
-    height: 62,
-    borderRadius: 31,
-    elevation: 2,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   safeArea: {
-    backgroundColor: "transparent",
+    backgroundColor: "#ffffff",
   },
 });

@@ -25,14 +25,14 @@ export async function registerForPushNotificationsAsync(userId: string) {
     }
     
     if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
-      return;
+      console.warn('Failed to get push token for push notification!');
+      return null;
     }
     
     try {
       // Get the push notification token
       const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: 'your-expo-project-id', // Replace with your actual project ID
+        projectId: 'fb1290ad-0546-493d-a247-1fd3205e7f99', // Use the project ID from app.json
       });
       token = tokenData.data;
       
@@ -43,10 +43,24 @@ export async function registerForPushNotificationsAsync(userId: string) {
       return token;
     } catch (error) {
       console.error('Error getting push notification token:', error);
+      
+      // Check if it's an Expo Go limitation
+      if (error instanceof Error && error.message.includes('Expo Go')) {
+        console.warn('Push notifications are not supported in Expo Go. Use a development build instead.');
+        return null;
+      }
+      
+      // Check if it's a project ID error
+      if (error instanceof Error && error.message.includes('projectId')) {
+        console.error('Invalid project ID. Please check your app.json configuration.');
+        return null;
+      }
+      
       throw error;
     }
   } else {
-    alert('Must use physical device for Push Notifications');
+    console.warn('Must use physical device for Push Notifications');
+    return null;
   }
 }
 
@@ -58,6 +72,6 @@ export async function sendTestNotification() {
       body: 'This is a test notification!',
       data: { data: 'goes here' },
     },
-    trigger: { seconds: 2 },
+    trigger: { seconds: 2 } as any,
   });
 }

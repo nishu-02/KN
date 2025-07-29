@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { StatusBar } from "react-native";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { StatusBar, View } from "react-native";
 import {
   Provider as ReduxProvider,
   useDispatch,
@@ -12,33 +12,28 @@ import {
 } from "react-native-paper";
 
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import * as Notifications from "expo-notifications";
-import store, { RootState } from "./core/redux/store";
+import store, { RootState, useAppDispatch } from "./core/redux/store";
 import { initSession } from "./core/redux/slices/authSlice";
 import LoginScreen from "./screens/LoginScreen";
-import RegisterPage from "./screens/RegisterScreen";
-import RegisterNGOScreen from "./screens/RegisterNGOScreen";
-import RegisterIndividualScreen from "./screens/RegisterIndividualScreen";
-import NGODashboardScreen from "./screens/NGODashboardScreen";
-import UserDashboardScreen from "./screens/user/UploadRescueScreen";
+import NGODashboardScreen from "./screens/ngo/NGODashboardScreen";
 import { registerForPushNotificationsAsync } from "./PushTokenRegister";
 
-// import CameraScreen from "./screens/user/camera/CameraScreen";
 import UploadRescueScreen from "./screens/user/camera/UploadRescueScreen";
+import SplashScreen from "./screens/user/SplashScreen";
+import SettingsScreen from './screens/user/SettingsScreen';
+import NotificationScreen from './screens/user/NotificationScreen';
 
 import UserBottomTabs from "./screens/navigation/UserBottomTabs";
+import { ThemeContext, lightTheme, darkTheme } from "./theme";
 
+function stripCustomThemeKeys(theme: any) {
+  const { cardShadow, spacing, ...rest } = theme;
+  return rest;
+}
 
-const Stack = createNativeStackNavigator();
-
-const theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: "white",
-  },
-};
+const Stack = createStackNavigator();
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -46,31 +41,39 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
-function RootNavigator() {
-  ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  });
-  const dispatch = useDispatch();
-  const { initialized, authenticated, loading, user } = useSelector(
+// Move RootNavigator outside App component to prevent recreation
+const RootNavigator = React.memo(() => {
+  const dispatch = useAppDispatch();
+  const { initialized, authenticated, loading, user, accountType } = useSelector(
     (s: RootState) => s.auth
   );
 
-  useEffect(() => {
-    // Initialize session on app start
+  // Memoize the initialization effect
+  const initializeSession = useCallback(() => {
     dispatch(initSession());
   }, [dispatch]);
 
-  // Register for push notifications when user is authenticated
   useEffect(() => {
+    // Initialize session on app start
+    initializeSession();
+  }, [initializeSession]);
+
+  // Memoize push notification registration
+  const registerNotifications = useCallback(() => {
     if (authenticated && user?.$id) {
       registerForPushNotificationsAsync(user.$id);
     }
   }, [authenticated, user]);
+
+  // Register for push notifications when user is authenticated
+  useEffect(() => {
+    registerNotifications();
+  }, [registerNotifications]);
 
   // Set up notification listeners
   useEffect(() => {
@@ -89,8 +92,8 @@ function RootNavigator() {
       });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      notificationListener.remove();
+      responseListener.remove();
     };
   }, []);
 
@@ -99,7 +102,7 @@ function RootNavigator() {
     return (
       <PaperProvider>
         <StatusBar barStyle="dark-content" />
-        <React.Fragment>
+        <View style={{ flex: 1 }}>
           <ActivityIndicator
             animating
             size="large"
@@ -110,65 +113,71 @@ function RootNavigator() {
               marginTop: 100,
             }}
           />
-        </React.Fragment>
+        </View>
       </PaperProvider>
     );
   }
 
   return (
-    <NavigationContainer theme={theme}>
+    <View style={{ flex: 1 }}>
       <StatusBar barStyle="dark-content" />
       <Stack.Navigator>
         {!authenticated ? (
-          <>
-            <Stack.Screen
-              name="SignIn"
-              component={LoginScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Register"
-              component={RegisterPage}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="RegisterNGO"
-              component={RegisterNGOScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="RegisterIndividual"
-              component={RegisterIndividualScreen}
-              options={{ headerShown: false }}
-            />
-          </>
+          <Stack.Screen
+            name="SignIn"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
         ) : (
           <>
+            <Stack.Screen
+              name="NGOAdminDashboard"
+              component={NGODashboardScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen
               name="UserHome"
               component={UserBottomTabs}
               options={{ headerShown: false }}
             />
-            <Stack.Screen
-              name="NGODashboard"
-              component={NGODashboardScreen}
-              options={{ headerShown: false }}
-            />
-           <Stack.Screen name="BottomTabs" component={UserBottomTabs} />
-      <Stack.Screen name="UploadRescue" component={UploadRescueScreen} />
+            <Stack.Screen name="UploadRescue" component={UploadRescueScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+            <Stack.Screen name="NotificationScreen" component={NotificationScreen} options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
+    </View>
   );
-}
+});
+
+RootNavigator.displayName = 'RootNavigator';
 
 export default function App() {
+  const [isDark, setIsDark] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+  
+  const theme = useMemo(() => (isDark ? darkTheme : lightTheme), [isDark]);
+  const toggleTheme = useCallback(() => setIsDark((prev) => !prev), []);
+
+  useEffect(() => {
+    // Show splash for 2 seconds
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
   return (
-    <ReduxProvider store={store}>
-      <PaperProvider>
-        <RootNavigator />
-      </PaperProvider>
-    </ReduxProvider>
+    <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+      <ReduxProvider store={store}>
+        <PaperProvider theme={stripCustomThemeKeys(theme)}>
+          <NavigationContainer theme={stripCustomThemeKeys(theme)}>
+            <RootNavigator />
+          </NavigationContainer>
+        </PaperProvider>
+      </ReduxProvider>
+    </ThemeContext.Provider>
   );
 }

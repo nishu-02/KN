@@ -1,21 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { TextInput, Button, ActivityIndicator, Text, Snackbar } from 'react-native-paper';
-import { useDispatch, useSelector } from 'react-redux';
-import { loginUser, resetError } from '../core/redux/slices/authSlice';
-import AppwriteService from '../appwrite/service';
-import type { AppDispatch } from '../core/redux/store';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { 
+  TextInput, 
+  Button, 
+  Text, 
+  Snackbar, 
+  SegmentedButtons,
+  Card,
+  Surface,
+  useTheme
+} from 'react-native-paper';
+import { useSelector } from 'react-redux';
+import { loginUser, resetError, createUserAccount } from '../core/redux/slices/authSlice';
+import { useAppDispatch } from '../core/redux/store';
+import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ImageBackground } from 'react-native';
 
-export default function LoginScreen({ navigation }: { navigation: any }) {
-  const dispatch = useDispatch<AppDispatch>();
-  const { loading, error, authenticated, user } = useSelector((state: any) => state.auth);
+interface FormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  name: string;
+}
+
+export default function LoginScreen() {
+  const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
+  const theme = useTheme();
+  const { loading, error, authenticated, user, accountType } = useSelector((state: any) => state.auth);
   
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [activeTab, setActiveTab] = useState<'user' | 'ngo'>('user');
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [userFormData, setUserFormData] = useState<FormData>({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+  });
+  const [ngoFormData, setNgoFormData] = useState<FormData>({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+  });
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [loginAttempts, setLoginAttempts] = useState(0);
-  const [checkingNGO, setCheckingNGO] = useState(false);
 
   // Reset login attempts every 5 minutes
   useEffect(() => {
@@ -28,12 +59,23 @@ export default function LoginScreen({ navigation }: { navigation: any }) {
     }
   }, [loginAttempts]);
 
-  // Handle authentication success
+  // Handle authentication success and navigation
   useEffect(() => {
-    if (authenticated && user) {
-      checkUserType();
+    if (authenticated && user && accountType) {
+      console.log('Authentication successful:', { accountType, user });
+      
+      if (accountType === 'ngo') {
+        showSnackbar('Welcome, NGO!');
+        navigation.navigate('NGOAdminDashboard');
+      } else if (accountType === 'user') {
+        showSnackbar(`Hello, ${user.name}!`);
+        navigation.navigate('UserHome');
+      } else if (accountType === 'new') {
+        showSnackbar('Welcome! Please complete your profile.');
+        navigation.navigate('UserHome'); // or a profile setup screen
+      }
     }
-  }, [authenticated, user]);
+  }, [authenticated, user, accountType, navigation]);
 
   // Handle login errors
   useEffect(() => {
@@ -41,7 +83,7 @@ export default function LoginScreen({ navigation }: { navigation: any }) {
       handleLoginError(error);
       dispatch(resetError());
     }
-  }, [error]);
+  }, [error, dispatch]);
 
   const showSnackbar = (msg: string) => {
     setSnackbarMsg(msg);
@@ -63,54 +105,94 @@ export default function LoginScreen({ navigation }: { navigation: any }) {
     }
   };
 
-  const checkUserType = async () => {
-    if (!user || !AppwriteService.jwtToken) return;
+  const getCurrentFormData = () => {
+    return activeTab === 'user' ? userFormData : ngoFormData;
+  };
 
-    setCheckingNGO(true);
-    try {
-      const ngoResponse = await fetch(`http://127.0.0.1:8000/ngo/profile/${user.$id}/`, {
-        headers: {
-          'Authorization': `Bearer ${AppwriteService.jwtToken}`,
-        },
-      });
-      
-      if (ngoResponse.ok) {
-        // User is NGO
-        showSnackbar('Welcome, NGO!');
-        // navigation.navigate('NGODashboard');
-      } else {
-        // User is normal user
-        showSnackbar(`Hello, ${user.name}!`);
-        // navigation.navigate('UserDashboard');
-      }
-    } catch (ngoError) {
-      console.warn('Could not check NGO status:', ngoError);
-      showSnackbar(`Welcome, ${user.name}!`);
-    } finally {
-      setCheckingNGO(false);
+  const setCurrentFormData = (data: FormData) => {
+    if (activeTab === 'user') {
+      setUserFormData(data);
+    } else {
+      setNgoFormData(data);
+    }
+  };
+
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    const currentData = getCurrentFormData();
+    const updatedData = { ...currentData, [field]: value };
+    setCurrentFormData(updatedData);
+  };
+
+  const isFormValid = () => {
+    const data = getCurrentFormData();
+    
+    if (isLoginMode) {
+      // For login, only check email and password
+      return data.email.includes('@') && data.password.length >= 6;
+    } else {
+      // For registration, check all fields
+      return data.email.includes('@') && 
+             data.password.length >= 6 && 
+             data.name.trim() &&
+             data.confirmPassword === data.password && 
+             data.confirmPassword.length >= 6;
     }
   };
 
   const handleLogin = async () => {
-    // Prevent rapid successive attempts
     if (loginAttempts >= 3) {
       showSnackbar('Too many attempts. Please wait 5 minutes before trying again.');
       return;
     }
 
-    if (!email.trim() || !password.trim()) {
+    const data = getCurrentFormData();
+    if (!data.email.trim() || !data.password.trim()) {
       showSnackbar('Please enter both email and password.');
       return;
     }
 
     setLoginAttempts(prev => prev + 1);
 
-    // Add a small delay to prevent rate limiting
     if (loginAttempts > 0) {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    dispatch(loginUser({ email, password }));
+    dispatch(loginUser({ email: data.email, password: data.password }));
+  };
+
+  const handleRegister = async () => {
+    const data = getCurrentFormData();
+    
+    if (!isFormValid()) {
+      showSnackbar('Please fill all fields correctly.');
+      return;
+    }
+
+    try {
+      // Create account with the new backend endpoint
+      await dispatch(createUserAccount({
+        email: data.email,
+        password: data.password,
+        name: data.name,
+        accountType: activeTab, // 'user' or 'ngo'
+      })).unwrap();
+
+      showSnackbar('Registration successful! Welcome to KarunaNidhan.');
+      
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      let errorMessage = 'Registration failed. ';
+      
+      if (error.message?.includes('already exists')) {
+        errorMessage += 'Account already exists. Please try logging in.';
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage += 'Too many requests. Please wait a moment.';
+      } else {
+        errorMessage += error.message || 'Unknown error occurred.';
+      }
+      
+      showSnackbar(errorMessage);
+    }
   };
 
   const resetAttempts = () => {
@@ -118,106 +200,233 @@ export default function LoginScreen({ navigation }: { navigation: any }) {
     showSnackbar('You can try logging in again now.');
   };
 
-  const isLoading = loading || checkingNGO;
-
   return (
-    <View style={styles.container}>
-      <Text variant="headlineLarge" style={styles.title}>
-        Welcome to KarunaNidhan
-      </Text>
-      
-      <Text style={styles.subtitle}>
-        Log in to continue helping our furry friends.{'\n'}
-        Already have an account? Great! If not, create one below.
-      </Text>
-
-      <TextInput
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        disabled={isLoading}
-        error={!!error && error.includes('email')}
-      />
-
-      <TextInput
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        secureTextEntry
-        disabled={isLoading}
-        error={!!error && error.includes('password')}
-      />
-
-      <Button
-        mode="contained"
-        onPress={handleLogin}
-        loading={isLoading}
-        disabled={isLoading || !email.trim() || !password.trim() || loginAttempts >= 3}
-        style={styles.button}
+    <ImageBackground
+      source={require('../assets/realistic-squirrel-natural-setting.jpg')}
+      style={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <LinearGradient
+        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.6)']}
+        style={styles.gradientOverlay}
       >
-        {checkingNGO ? 'Checking user type...' : 'Login as User'}
-      </Button>
-
-      {loginAttempts >= 3 && (
-        <Button
-          mode="text"
-          onPress={resetAttempts}
-          style={styles.button}
+        <ScrollView 
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
         >
-          Reset and Try Again
-        </Button>
-      )}
+          {/* Header */}
+          <View style={styles.header}>
+            <Text variant="headlineLarge" style={styles.title}>
+              Welcome to KarunaNidhan
+            </Text>
+            <Text style={styles.subtitle}>
+              Join us in making a difference for animals in need
+            </Text>
+          </View>
 
-      <Button
-        mode="text"
-        onPress={() => navigation.navigate('Register' as never)}
-        style={styles.button}
-        disabled={isLoading}
-      >
-        Don't have an account?
-      </Button>
+          {/* User Type Tabs */}
+          <Surface style={styles.tabContainer} elevation={4}>
+            <SegmentedButtons
+              value={activeTab}
+              onValueChange={value => setActiveTab(value as 'user' | 'ngo')}
+              buttons={[
+                { value: 'user', label: 'User', icon: 'account' },
+                { value: 'ngo', label: 'NGO', icon: 'office-building' },
+              ]}
+              style={styles.segmentedButtons}
+            />
+          </Surface>
 
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={4000}
-        action={{
-          label: 'Close',
-          onPress: () => setSnackbarVisible(false),
-        }}
-      >
-        {snackbarMsg}
-      </Snackbar>
-    </View>
+          {/* Login/Register Toggle */}
+          <Surface style={styles.modeContainer} elevation={2}>
+            <SegmentedButtons
+              value={isLoginMode ? 'login' : 'register'}
+              onValueChange={value => setIsLoginMode(value === 'login')}
+              buttons={[
+                { value: 'login', label: 'Login' },
+                { value: 'register', label: 'Register' },
+              ]}
+              style={styles.modeButtons}
+            />
+          </Surface>
+
+          {/* Form Card */}
+          <Card style={styles.formCard} mode="elevated">
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.formTitle}>
+                {isLoginMode ? 'Login' : 'Register'} as {activeTab === 'user' ? 'User' : 'NGO'}
+              </Text>
+
+              {/* Name Field (only for registration) */}
+              {!isLoginMode && (
+                <TextInput
+                  label="Full Name"
+                  value={getCurrentFormData().name}
+                  onChangeText={(text) => handleInputChange('name', text)}
+                  style={styles.input}
+                  mode="outlined"
+                  left={<TextInput.Icon icon="account" />}
+                  disabled={loading}
+                />
+              )}
+
+              {/* Email Field */}
+              <TextInput
+                label="Email"
+                value={getCurrentFormData().email}
+                onChangeText={(text) => handleInputChange('email', text)}
+                style={styles.input}
+                mode="outlined"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                left={<TextInput.Icon icon="email" />}
+                disabled={loading}
+              />
+
+              {/* Password Field */}
+              <TextInput
+                label="Password"
+                value={getCurrentFormData().password}
+                onChangeText={(text) => handleInputChange('password', text)}
+                style={styles.input}
+                mode="outlined"
+                secureTextEntry
+                left={<TextInput.Icon icon="lock" />}
+                disabled={loading}
+              />
+
+              {/* Confirm Password Field (only for registration) */}
+              {!isLoginMode && (
+                <TextInput
+                  label="Confirm Password"
+                  value={getCurrentFormData().confirmPassword}
+                  onChangeText={(text) => handleInputChange('confirmPassword', text)}
+                  style={styles.input}
+                  mode="outlined"
+                  secureTextEntry
+                  left={<TextInput.Icon icon="lock-check" />}
+                  disabled={loading}
+                  error={getCurrentFormData().confirmPassword && 
+                         getCurrentFormData().password !== getCurrentFormData().confirmPassword}
+                />
+              )}
+
+              {/* Action Button */}
+              <Button
+                mode="contained"
+                onPress={isLoginMode ? handleLogin : handleRegister}
+                loading={loading}
+                disabled={!isFormValid() || loading || loginAttempts >= 3}
+                style={styles.actionButton}
+                contentStyle={styles.buttonContent}
+              >
+                {loading 
+                  ? 'Processing...' 
+                  : (isLoginMode ? 'Login' : 'Register')
+                }
+              </Button>
+
+              {/* Reset Attempts Button */}
+              {loginAttempts >= 3 && (
+                <Button
+                  mode="text"
+                  onPress={resetAttempts}
+                  style={styles.resetButton}
+                >
+                  Reset and Try Again
+                </Button>
+              )}
+            </Card.Content>
+          </Card>
+        </ScrollView>
+
+        <Snackbar
+          visible={snackbarVisible}
+          onDismiss={() => setSnackbarVisible(false)}
+          duration={4000}
+          action={{
+            label: 'Close',
+            onPress: () => setSnackbarVisible(false),
+          }}
+        >
+          {snackbarMsg}
+        </Snackbar>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backgroundImage: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  gradientOverlay: {
+    flex: 1,
+  },
+  container: {
+    flexGrow: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    paddingTop: 60,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 30,
   },
   title: {
+    color: 'white',
+    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
-    color: '#2196F3',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
-    marginBottom: 30,
-    color: '#666',
-    lineHeight: 22,
+    fontSize: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  tabContainer: {
+    marginBottom: 20,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  segmentedButtons: {
+    margin: 8,
+  },
+  modeContainer: {
+    marginBottom: 20,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  modeButtons: {
+    margin: 8,
+  },
+  formCard: {
+    marginBottom: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  formTitle: {
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: 'bold',
   },
   input: {
-    marginBottom: 15,
+    marginBottom: 16,
   },
-  button: {
-    marginTop: 10,
+  actionButton: {
+    marginTop: 8,
+    borderRadius: 12,
+    elevation: 4,
+  },
+  buttonContent: {
+    paddingVertical: 8,
+  },
+  resetButton: {
+    marginTop: 8,
   },
 });

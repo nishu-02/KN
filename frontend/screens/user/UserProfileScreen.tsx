@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  Share,
+  Modal,
+  Linking,
 } from "react-native";
 import {
   Text,
@@ -25,6 +28,11 @@ import {
 } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useThemeContext } from '../../theme';
+import SettingsScreen from './SettingsScreen';
+import { useNavigation } from '@react-navigation/native';
+import { useAppDispatch } from '../../core/redux/store';
+import { logoutUser } from '../../core/redux/slices/authSlice';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -102,7 +110,9 @@ const AnimatedTouchable = ({
 const AchievementItem: React.FC<{
   item: Achievement;
   parentFadeAnim: Animated.Value;
-}> = ({ item, parentFadeAnim }) => {
+  theme: any;
+  themedStyles: any;
+}> = ({ item, parentFadeAnim, theme, themedStyles }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () =>
@@ -120,19 +130,19 @@ const AchievementItem: React.FC<{
       scaleAnim={scaleAnim}
       fadeAnim={parentFadeAnim}
     >
-      <Surface style={styles.achievementCard} elevation={2}>
-        <View style={[styles.achievementIcon, { backgroundColor: item.color }]}>
+      <Surface style={themedStyles.achievementCard} elevation={2}>
+        <View style={[themedStyles.achievementIcon, { backgroundColor: item.color }]}>
           <Ionicons name={item.icon as any} size={24} color="#fff" />
         </View>
-        <Text style={styles.achievementTitle}>{item.title}</Text>
-        <Text style={styles.achievementDesc}>{item.description}</Text>
-        <View style={styles.achievementProgress}>
+        <Text style={themedStyles.achievementTitle}>{item.title}</Text>
+        <Text style={themedStyles.achievementDesc}>{item.description}</Text>
+        <View style={themedStyles.achievementProgress}>
           <ProgressBar
             progress={item.progress}
             color={item.color}
-            style={styles.achievementBar}
+            style={themedStyles.achievementBar}
           />
-          <Text style={styles.achievementDate}>{item.date}</Text>
+          <Text style={themedStyles.achievementDate}>{item.date}</Text>
         </View>
       </Surface>
     </AnimatedTouchable>
@@ -142,7 +152,9 @@ const AchievementItem: React.FC<{
 const RescueItem: React.FC<{
   item: Rescue;
   parentFadeAnim: Animated.Value;
-}> = ({ item, parentFadeAnim }) => {
+  theme: any;
+  themedStyles: any;
+}> = ({ item, parentFadeAnim, theme, themedStyles }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () =>
@@ -167,33 +179,33 @@ const RescueItem: React.FC<{
       scaleAnim={scaleAnim}
       fadeAnim={parentFadeAnim}
     >
-      <Card style={styles.rescueCard}>
-        <Card.Cover source={{ uri: item.image }} style={styles.rescueImage} />
-        <Card.Content style={styles.rescueContent}>
-          <Text style={styles.rescueTitle}>{item.title}</Text>
-          <View style={styles.rescueDetails}>
+      <Card style={themedStyles.rescueCard}>
+        <Card.Cover source={{ uri: item.image }} style={themedStyles.rescueImage} />
+        <Card.Content style={themedStyles.rescueContent}>
+          <Text style={themedStyles.rescueTitle}>{item.title}</Text>
+          <View style={themedStyles.rescueDetails}>
             {[
               { icon: "calendar-outline", text: item.date },
               { icon: "location-outline", text: item.location },
               { icon: "time-outline", text: item.duration },
             ].map(({ icon, text }, index) => (
-              <View key={index} style={styles.rescueDetailItem}>
+              <View key={index} style={themedStyles.rescueDetailItem}>
                 <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={12} color="#666" />
-                <Text style={styles.rescueDetailText}>{text}</Text>
+                <Text style={themedStyles.rescueDetailText}>{text}</Text>
               </View>
             ))}
           </View>
-          <View style={styles.rescueFooter}>
+          <View style={themedStyles.rescueFooter}>
             <Chip
               style={[
-                styles.statusChip,
+                themedStyles.statusChip,
                 { backgroundColor: getStatusColor(item.status) },
               ]}
               textStyle={{ color: "#fff", fontSize: 10 }}
             >
               {item.status}
             </Chip>
-            <Text style={styles.rescueCost}>{item.cost}</Text>
+            <Text style={themedStyles.rescueCost}>{item.cost}</Text>
           </View>
         </Card.Content>
       </Card>
@@ -209,9 +221,10 @@ const SectionCard: React.FC<{
   toggle: () => void;
   children: React.ReactNode;
   fadeAnim: Animated.Value;
-}> = ({ title, icon, iconColor, expanded, toggle, children, fadeAnim }) => (
+  themedStyles: any;
+}> = ({ title, icon, iconColor, expanded, toggle, children, fadeAnim, themedStyles }) => (
   <Animated.View style={{ opacity: fadeAnim }}>
-    <Card style={styles.card}>
+    <Card style={themedStyles.card}>
       <Card.Title
         title={title}
         left={(props) => <List.Icon {...props} icon={icon} color={iconColor} />}
@@ -228,6 +241,8 @@ const SectionCard: React.FC<{
 );
 
 export default function UserProfileScreen() {
+  const { theme,  } = useThemeContext();
+  const dispatch = useAppDispatch();
   const [notificationRange, setNotificationRange] = useState("25");
   const [isPrivate, setIsPrivate] = useState(false);
   const [language, setLanguage] = useState("english");
@@ -244,6 +259,8 @@ export default function UserProfileScreen() {
     goals: true,
     categories: true,
   });
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const navigation = useNavigation<any>();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const avatarScale = useRef(new Animated.Value(1)).current;
@@ -270,7 +287,7 @@ export default function UserProfileScreen() {
   }, []);
 
   const userProfile: UserProfile = {
-    name: "John Doe",
+    name: "Sean Hudson",
     title: "Animal Rescuer | Community Volunteer",
     joinDate: "March 2023",
     location: "New Delhi, India",
@@ -388,69 +405,102 @@ export default function UserProfileScreen() {
   const toggleSection = (section: keyof typeof expandedSections) =>
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
 
+  const themedStyles = styles(theme);
+
+  // Handler for sharing profile
+  const handleShareProfile = async () => {
+    try {
+      const profileLink = `https://karunanidhan.org/certificate/${encodeURIComponent(userProfile.name.replace(/\s+/g, '-').toLowerCase())}`;
+      const message = `🐾 Animal Rescue Certificate 🐾\n\nThis certifies that ${userProfile.name} (${userProfile.title}) has made a significant impact in animal rescue.\n\nLocation: ${userProfile.location}\nKarma Points: 850\nAnimals Saved: ${rescueStats.totalRescues}\nSuccess Rate: ${rescueStats.successRate}%\nReferral Code: GOODBOY497\n\nView certificate: ${profileLink}`;
+      await Share.share({ message, url: profileLink });
+    } catch (error) {
+      // Optionally handle error
+    }
+  };
+
+  // Handler for edit profile
+  const handleEditProfile = () => {
+    setEditModalVisible(true);
+  };
+
+  // Handler for settings
+  const handleSettings = () => {
+    navigation.navigate('Settings');
+  };
+
+  // Handler for logout
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser());
+      // Navigation will be handled automatically by the App.tsx based on auth state
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 120 }}
+      style={themedStyles.container}
+      contentContainerStyle={{ paddingBottom: theme.spacing.margin * 7.5 }}
     >
       {/* Profile Banner */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <View style={styles.bannerContainer}>
+        <View style={themedStyles.bannerContainer}>
           <ImageBackground
             source={{
               uri: "https://www.onehealth.org/hubfs/blog/what-is-veterinary-social-work.jpg",
             }}
-            style={styles.banner}
+            style={themedStyles.banner}
             resizeMode="cover"
           >
             <LinearGradient
-              colors={["#8B4513", "rgba(0,0,0,0.7)"]}
-              style={styles.bannerOverlay}
+              colors={[theme.colors.primary, 'rgba(0,0,0,0.7)']}
+              style={themedStyles.bannerOverlay}
             />
-            <View style={styles.avatarContainer}>
+            <View style={themedStyles.avatarContainer}>
               <Animated.View style={{ transform: [{ scale: avatarScale }] }}>
                 <Avatar.Image
                   size={100}
                   source={{
                     uri: "https://t3.ftcdn.net/jpg/00/82/95/24/360_F_82952482_4zuOUVaXEmSOckrfuoLSd12cm4b3ZEzU.jpg",
                   }}
-                  style={styles.avatar}
+                  style={themedStyles.avatar}
                 />
               </Animated.View>
-              <Text style={styles.name}>{userProfile.name}</Text>
-              <Text style={styles.title}>{userProfile.title}</Text>
-              <View style={styles.profileMeta}>
-                <View style={styles.metaItem}>
-                  <Ionicons name="location-outline" size={14} color="#fff" />
-                  <Text style={styles.metaText}>{userProfile.location}</Text>
+              <Text style={themedStyles.name}>{userProfile.name}</Text>
+              <Text style={themedStyles.title}>{userProfile.title}</Text>
+              <View style={themedStyles.profileMeta}>
+                <View style={themedStyles.metaItem}>
+                  <Ionicons name="location-outline" size={14} color={theme.colors.card} />
+                  <Text style={themedStyles.metaText}>{userProfile.location}</Text>
                 </View>
-                <View style={styles.metaItem}>
-                  <Ionicons name="calendar-outline" size={14} color="#fff" />
-                  <Text style={styles.metaText}>
+                <View style={themedStyles.metaItem}>
+                  <Ionicons name="calendar-outline" size={14} color={theme.colors.card} />
+                  <Text style={themedStyles.metaText}>
                     Joined {userProfile.joinDate}
                   </Text>
                 </View>
               </View>
             </View>
           </ImageBackground>
-          <View style={styles.profileActions}>
-            {["create-outline", "share-outline", "settings-outline"].map(
-              (icon, index) => (
-                <TouchableOpacity key={index} style={styles.actionButton}>
-                  <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#8B4513" />
-                  <Text style={styles.actionText}>
-                    {["Edit", "Share", "Settings"][index]}
-                  </Text>
+          <View style={themedStyles.profileActions}>
+            {[
+              { icon: "create-outline", label: "Edit", onPress: handleEditProfile },
+              { icon: "share-outline", label: "Share", onPress: handleShareProfile },
+              { icon: "settings-outline", label: "Settings", onPress: handleSettings },
+            ].map(({ icon, label, onPress }, index) => (
+              <TouchableOpacity key={index} style={themedStyles.actionButton} onPress={onPress}>
+                  <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={theme.colors.primary} />
+                <Text style={themedStyles.actionText}>{label}</Text>
                 </TouchableOpacity>
-              )
-            )}
+            ))}
           </View>
         </View>
       </Animated.View>
 
       {/* Stats */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <Surface style={styles.statsContainer} elevation={4}>
+        <Surface style={themedStyles.statsContainer} elevation={4}>
           {[
             {
               number: 850,
@@ -462,25 +512,25 @@ export default function UserProfileScreen() {
               number: rescueStats.totalRescues,
               label: "Animals Saved",
               icon: "heart",
-              color: "#FF6B6B",
+              color: "red",
             },
             {
               number: 103,
               label: "Lives Touched",
               icon: "people",
-              color: "#4ECDC4",
+              color: "pink",
             },
             {
               number: `${rescueStats.successRate}%`,
               label: "Success Rate",
               icon: "checkmark-circle",
-              color: "#4CAF50",
+              color: "green",
             },
           ].map(({ number, label, icon, color }, index) => (
-            <View key={index} style={styles.statBox}>
-              <Text style={styles.statNumber}>{number}</Text>
-              <Text style={styles.statLabel}>{label}</Text>
-              <View style={styles.statIcon}>
+            <View key={index} style={themedStyles.statBox}>
+              <Text style={themedStyles.statNumber}>{number}</Text>
+              <Text style={themedStyles.statLabel}>{label}</Text>
+              <View style={themedStyles.statIcon}>
                 <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={16} color={color} />
               </View>
             </View>
@@ -496,25 +546,26 @@ export default function UserProfileScreen() {
         expanded={expandedSections.goals}
         toggle={() => toggleSection("goals")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
-        <View style={styles.goalContainer}>
-          <View style={styles.goalHeader}>
-            <Text style={styles.goalText}>
+        <View style={themedStyles.goalContainer}>
+          <View style={themedStyles.goalHeader}>
+            <Text style={themedStyles.goalText}>
               {Math.round(
                 rescueStats.monthlyProgress * rescueStats.monthlyGoal
               )}{" "}
               of {rescueStats.monthlyGoal} rescues
             </Text>
-            <Text style={styles.goalPercentage}>
+            <Text style={themedStyles.goalPercentage}>
               {Math.round(rescueStats.monthlyProgress * 100)}%
             </Text>
           </View>
           <ProgressBar
             progress={rescueStats.monthlyProgress}
             color="#8B4513"
-            style={styles.progressBar}
+            style={themedStyles.progressBar}
           />
-          <Text style={styles.goalSubtext}>
+          <Text style={themedStyles.goalSubtext}>
             {rescueStats.monthlyGoal -
               Math.round(
                 rescueStats.monthlyProgress * rescueStats.monthlyGoal
@@ -532,6 +583,7 @@ export default function UserProfileScreen() {
         expanded={expandedSections.achievements}
         toggle={() => toggleSection("achievements")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
         <FlatList
           data={achievements}
@@ -539,7 +591,7 @@ export default function UserProfileScreen() {
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <AchievementItem item={item} parentFadeAnim={fadeAnim} />
+            <AchievementItem item={item} parentFadeAnim={fadeAnim} theme={theme} themedStyles={themedStyles} />
           )}
         />
       </SectionCard>
@@ -552,24 +604,25 @@ export default function UserProfileScreen() {
         expanded={expandedSections.categories}
         toggle={() => toggleSection("categories")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
-        <View style={styles.categoriesContainer}>
+        <View style={themedStyles.categoriesContainer}>
           {rescueStats.categories.map((category, index) => (
-            <View key={index} style={styles.categoryItem}>
-              <View style={styles.categoryHeader}>
+            <View key={index} style={themedStyles.categoryItem}>
+              <View style={themedStyles.categoryHeader}>
                 <View
                   style={[
-                    styles.categoryDot,
+                    themedStyles.categoryDot,
                     { backgroundColor: category.color },
                   ]}
                 />
-                <Text style={styles.categoryName}>{category.name}</Text>
-                <Text style={styles.categoryCount}>{category.count}</Text>
+                <Text style={themedStyles.categoryName}>{category.name}</Text>
+                <Text style={themedStyles.categoryCount}>{category.count}</Text>
               </View>
               <ProgressBar
                 progress={category.count / rescueStats.totalRescues}
                 color={category.color}
-                style={styles.categoryBar}
+                style={themedStyles.categoryBar}
               />
             </View>
           ))}
@@ -584,15 +637,16 @@ export default function UserProfileScreen() {
         expanded={expandedSections.professionalInfo}
         toggle={() => toggleSection("professionalInfo")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
-        <View style={styles.professionalGrid}>
-          <View style={styles.professionalItem}>
-            <Text style={styles.professionalLabel}>Specializations</Text>
-            <View style={styles.specializationChips}>
+        <View style={themedStyles.professionalGrid}>
+          <View style={themedStyles.professionalItem}>
+            <Text style={themedStyles.professionalLabel}>Specializations</Text>
+            <View style={themedStyles.specializationChips}>
               {userProfile.specializations.map((spec, index) => (
                 <Chip
                   key={index}
-                  style={styles.specChip}
+                  style={themedStyles.specChip}
                   textStyle={{ fontSize: 12, color: "#6B4F3A" }}
                 >
                   {spec}
@@ -600,29 +654,29 @@ export default function UserProfileScreen() {
               ))}
             </View>
           </View>
-          <View style={styles.professionalItem}>
-            <Text style={styles.professionalLabel}>Transport Capacity</Text>
-            <Text style={styles.professionalValue}>
+          <View style={themedStyles.professionalItem}>
+            <Text style={themedStyles.professionalLabel}>Transport Capacity</Text>
+            <Text style={themedStyles.professionalValue}>
               {userProfile.transportCapacity}
             </Text>
           </View>
-          <View style={styles.professionalItem}>
-            <Text style={styles.professionalLabel}>Availability</Text>
-            <View style={styles.availabilityContainer}>
-              <Text style={styles.availabilityText}>
+          <View style={themedStyles.professionalItem}>
+            <Text style={themedStyles.professionalLabel}>Availability</Text>
+            <View style={themedStyles.availabilityContainer}>
+              <Text style={themedStyles.availabilityText}>
                 {userProfile.availability.days.join(", ")}
               </Text>
-              <Text style={styles.availabilityTime}>
+              <Text style={themedStyles.availabilityTime}>
                 {userProfile.availability.timeSlots.join(" & ")}
               </Text>
             </View>
           </View>
-          <View style={styles.professionalItem}>
-            <Text style={styles.professionalLabel}>Certifications</Text>
+          <View style={themedStyles.professionalItem}>
+            <Text style={themedStyles.professionalLabel}>Certifications</Text>
             {userProfile.certifications.map((cert, index) => (
-              <View key={index} style={styles.certificationItem}>
+              <View key={index} style={themedStyles.certificationItem}>
                 <Ionicons name="ribbon" size={14} color="#8B4513" />
-                <Text style={styles.certificationText}>{cert}</Text>
+                <Text style={themedStyles.certificationText}>{cert}</Text>
               </View>
             ))}
           </View>
@@ -637,8 +691,9 @@ export default function UserProfileScreen() {
         expanded={expandedSections.skills}
         toggle={() => toggleSection("skills")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
-        <View style={styles.skillsContainer}>
+        <View style={themedStyles.skillsContainer}>
           {[
             {
               title: "Primary Skills",
@@ -647,7 +702,7 @@ export default function UserProfileScreen() {
                 { icon: "medical-bag", text: "Medical Knowledge" },
                 { icon: "paw", text: "Animal Handling" },
               ],
-              style: styles.primaryChip,
+              style: themedStyles.primaryChip,
             },
             {
               title: "Secondary Skills",
@@ -657,12 +712,12 @@ export default function UserProfileScreen() {
                 { icon: undefined, text: "Emergency Response" },
                 { icon: undefined, text: "Community Outreach" },
               ],
-              style: styles.secondaryChip,
+              style: themedStyles.secondaryChip,
             },
           ].map(({ title, chips, style }, index) => (
-            <View key={index} style={styles.skillCategory}>
-              <Text style={styles.skillCategoryTitle}>{title}</Text>
-              <View style={styles.chipContainer}>
+            <View key={index} style={themedStyles.skillCategory}>
+              <Text style={themedStyles.skillCategoryTitle}>{title}</Text>
+              <View style={themedStyles.chipContainer}>
                 {chips.map(({ text, icon }, i) => (
                   <Chip key={i} style={style} icon={icon}>
                     {text}
@@ -682,6 +737,7 @@ export default function UserProfileScreen() {
         expanded={expandedSections.rescues}
         toggle={() => toggleSection("rescues")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
         <FlatList
           data={dummyRescues}
@@ -689,98 +745,9 @@ export default function UserProfileScreen() {
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <RescueItem item={item} parentFadeAnim={fadeAnim} />
+            <RescueItem item={item} parentFadeAnim={fadeAnim} theme={theme} themedStyles={themedStyles} />
           )}
         />
-      </SectionCard>
-
-      {/* Preferences & Settings */}
-      <SectionCard
-        title="Preferences & Settings"
-        icon="cog"
-        iconColor="#8B4513"
-        expanded={expandedSections.settings}
-        toggle={() => toggleSection("settings")}
-        fadeAnim={fadeAnim}
-      >
-        <View style={styles.settingSection}>
-          <Text style={styles.settingSectionTitle}>Notification Settings</Text>
-          {[
-            {
-              icon: "notifications-outline",
-              label: "Auto-Accept Rescues",
-              value: autoAcceptRescues,
-              onChange: setAutoAcceptRescues,
-              thumbColor: "#8B4513",
-            },
-            {
-              icon: "alert-circle-outline",
-              label: "Emergency Mode",
-              value: emergencyMode,
-              onChange: setEmergencyMode,
-              thumbColor: "#FF4444",
-            },
-            {
-              icon: "eye-off-outline",
-              label: "Privacy Mode",
-              value: isPrivate,
-              onChange: setIsPrivate,
-              thumbColor: "#8B4513",
-            },
-          ].map(({ icon, label, value, onChange, thumbColor }, index) => (
-            <View key={index} style={styles.settingRow}>
-              <View style={styles.settingLeft}>
-                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={thumbColor} />
-                <Text style={styles.settingLabel}>{label}</Text>
-              </View>
-              <Switch
-                value={value}
-                onValueChange={onChange}
-                thumbColor={value ? thumbColor : "#f4f3f4"}
-              />
-            </View>
-          ))}
-        </View>
-        <Divider style={styles.settingDivider} />
-        <View style={styles.settingSection}>
-          <Text style={styles.settingSectionTitle}>Range & Language</Text>
-          {[
-            {
-              icon: "location-outline",
-              label: "Notification Range",
-              value: notificationRange,
-              onChange: setNotificationRange,
-              buttons: [
-                { value: "5", label: "5 km" },
-                { value: "25", label: "25 km" },
-                { value: "50", label: "50 km" },
-              ],
-            },
-            {
-              icon: "language-outline",
-              label: "Preferred Language",
-              value: language,
-              onChange: setLanguage,
-              buttons: [
-                { value: "english", label: "English" },
-                { value: "hindi", label: "Hindi" },
-              ],
-            },
-          ].map(({ icon, label, value, onChange, buttons }, index) => (
-            <View key={index} style={styles.settingRowVertical}>
-              <View style={styles.settingLeft}>
-                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color="#8B4513" />
-                <Text style={styles.settingLabel}>{label}</Text>
-              </View>
-              <SegmentedButtons
-                value={value}
-                onValueChange={onChange}
-                buttons={buttons}
-                style={styles.segmentedButtons}
-              />
-            </View>
-          ))}
-        </View>
       </SectionCard>
 
       {/* Emergency Contact */}
@@ -791,32 +758,33 @@ export default function UserProfileScreen() {
         expanded={expandedSections.emergencyContact}
         toggle={() => toggleSection("emergencyContact")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
-        <View style={styles.emergencyContact}>
-          <View style={styles.contactInfo}>
-            <Text style={styles.contactName}>
+        <View style={themedStyles.emergencyContact}>
+          <View style={themedStyles.contactInfo}>
+            <Text style={themedStyles.contactName}>
               {userProfile.emergencyContact.name}
             </Text>
-            <Text style={styles.contactRelation}>
+            <Text style={themedStyles.contactRelation}>
               {userProfile.emergencyContact.relation}
             </Text>
-            <Text style={styles.contactPhone}>
+            <Text style={themedStyles.contactPhone}>
               {userProfile.emergencyContact.phone}
             </Text>
           </View>
-          <View style={styles.contactActions}>
+          <View style={themedStyles.contactActions}>
             <IconButton
               icon="phone"
               iconColor="#4CAF50"
               size={24}
-              style={styles.contactButton}
+              style={themedStyles.contactButton}
               onPress={() => {}}
             />
             <IconButton
               icon="pencil"
               iconColor="#8B4513"
               size={24}
-              style={styles.contactButton}
+              style={themedStyles.contactButton}
               onPress={() => {}}
             />
           </View>
@@ -831,20 +799,21 @@ export default function UserProfileScreen() {
         expanded={expandedSections.referral}
         toggle={() => toggleSection("referral")}
         fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
       >
-        <View style={styles.referralContainer}>
-          <View style={styles.referralHeader}>
-            <Text style={styles.referralTitle}>
+        <View style={themedStyles.referralContainer}>
+          <View style={themedStyles.referralHeader}>
+            <Text style={themedStyles.referralTitle}>
               Invite Friends & Earn Rewards
             </Text>
-            <Text style={styles.referralDescription}>
+            <Text style={themedStyles.referralDescription}>
               Get 100 karma points for each successful referral
             </Text>
           </View>
-          <View style={styles.referralCodeContainer}>
-            <Text style={styles.referralCodeLabel}>Your Referral Code:</Text>
-            <View style={styles.referralCode}>
-              <Text style={styles.referralCodeText}>GOODBOY497</Text>
+          <View style={themedStyles.referralCodeContainer}>
+            <Text style={themedStyles.referralCodeLabel}>Your Referral Code:</Text>
+            <View style={themedStyles.referralCode}>
+              <Text style={themedStyles.referralCodeText}>GOODBOY497</Text>
               <IconButton
                 icon="content-copy"
                 size={20}
@@ -853,22 +822,22 @@ export default function UserProfileScreen() {
               />
             </View>
           </View>
-          <View style={styles.referralStats}>
+          <View style={themedStyles.referralStats}>
             {[
               { number: 12, label: "Invites Sent" },
               { number: 8, label: "Joined" },
               { number: 800, label: "Points Earned" },
             ].map(({ number, label }, index) => (
-              <View key={index} style={styles.referralStat}>
-                <Text style={styles.referralStatNumber}>{number}</Text>
-                <Text style={styles.referralStatLabel}>{label}</Text>
+              <View key={index} style={themedStyles.referralStat}>
+                <Text style={themedStyles.referralStatNumber}>{number}</Text>
+                <Text style={themedStyles.referralStatLabel}>{label}</Text>
               </View>
             ))}
           </View>
           <Button
             icon="share-variant"
             mode="contained"
-            style={styles.shareButton}
+            style={themedStyles.shareButton}
             buttonColor="#8B4513"
             onPress={() => {}}
           >
@@ -876,64 +845,95 @@ export default function UserProfileScreen() {
           </Button>
         </View>
       </SectionCard>
+
+      {/* Logout Section */}
+      <Card style={themedStyles.logoutCard}>
+        <Card.Content>
+          <Button
+            mode="contained"
+            buttonColor="#FF4444"
+            textColor="white"
+            style={themedStyles.logoutButton}
+            icon="log-out-outline"
+            onPress={handleLogout}
+          >
+            Log Out
+          </Button>
+        </Card.Content>
+      </Card>
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>Edit Profile (Demo)</Text>
+            {/* Add your edit profile form here */}
+            <Button mode="contained" onPress={() => setEditModalVisible(false)} style={{ marginTop: 16 }}>Close</Button>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { backgroundColor: "#FFF5E1", flex: 1 },
+const styles = (theme: any) => StyleSheet.create({
+  container: { backgroundColor: theme.colors.background, flex: 1 },
   bannerContainer: { position: "relative" },
   banner: { height: 260, justifyContent: "center", alignItems: "center", paddingTop: 38 },
   bannerOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   avatarContainer: { alignItems: "center", zIndex: 2 },
   avatar: {
-    borderColor: "#fff",
+    borderColor: theme.colors.card,
     elevation: 10,
-    backgroundColor: "#FFF",
+    backgroundColor: theme.colors.card,
   },
   name: {
     marginTop: 1,
     fontWeight: "bold",
     fontSize: 26,
-    color: "#fff",
+    color: theme.colors.card,
     textAlign: "center",
     fontFamily: "cursive",
   },
-  title: { color: "#f0f0f0", fontSize: 16, textAlign: "center", marginTop: 1 },
+  title: { color: theme.colors.subtext, fontSize: 16, textAlign: "center", marginTop: 1 },
   profileMeta: { flexDirection: "row", marginTop: 1, gap: 16 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { color: "#f0f0f0", fontSize: 13 },
+  metaText: { color: theme.colors.card, fontSize: 13 },
   profileActions: {
     flexDirection: "row",
     justifyContent: "space-evenly",
-    backgroundColor: "#fff",
-    paddingVertical: 12,
+    backgroundColor: theme.colors.card,
+    paddingVertical: 10,
     marginTop: -20,
-    marginHorizontal: 16,
-    borderRadius: 16,
+    marginHorizontal: theme.spacing.margin,
+    borderRadius: theme.spacing.radius,
     elevation: 4,
   },
   actionButton: { alignItems: "center", gap: 6 },
-  actionText: { fontSize: 13, color: "#8B4513", fontWeight: "600" },
+  actionText: { fontSize: 13, color: theme.colors.tabActive, fontWeight: "600" },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-evenly",
     paddingVertical: 20,
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
+    backgroundColor: theme.colors.card,
+    marginHorizontal: theme.spacing.margin,
     marginTop: 12,
-    borderRadius: 16,
+    borderRadius: theme.spacing.radius,
     elevation: 4,
   },
   statBox: { alignItems: "center", position: "relative" },
-  statNumber: { fontSize: 22, fontWeight: "bold", color: "#8B4513" },
-  statLabel: { fontSize: 12, color: "#6B4F3A", marginTop: 4 },
+  statNumber: { fontSize: 22, fontWeight: "bold", color: theme.colors.tabActive },
+  statLabel: { fontSize: 12, color: theme.colors.tabInactive, marginTop: 4 },
   statIcon: { position: "absolute", top: -4, right: -8 },
   card: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
+    backgroundColor: theme.colors.card,
+    marginHorizontal: theme.spacing.margin,
     marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: theme.spacing.radius,
     elevation: 4,
     overflow: "hidden",
   },
@@ -943,16 +943,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  goalText: { fontSize: 16, fontWeight: "600", color: "#5C4033" },
-  goalPercentage: { fontSize: 16, fontWeight: "bold", color: "#8B4513" },
-  progressBar: { height: 10, borderRadius: 5, backgroundColor: "#EDE0C8" },
-  goalSubtext: { fontSize: 13, color: "#7C5C42" },
+  goalText: { fontSize: 16, fontWeight: "600", color: theme.colors.tabInactive },
+  goalPercentage: { fontSize: 16, fontWeight: "bold", color: theme.colors.tabActive },
+  progressBar: { height: 10, borderRadius: 5, backgroundColor: theme.colors.tabBackground2 },
+  goalSubtext: { fontSize: 13, color: theme.colors.tabInactive },
   achievementCard: {
     width: 150,
     padding: 16,
     marginRight: 12,
     borderRadius: 12,
-    backgroundColor: "#FAF3E0",
+    backgroundColor: theme.colors.tabBackground1,
     alignItems: "center",
   },
   achievementIcon: {
@@ -962,24 +962,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
+    backgroundColor: theme.colors.tabBackground2,
   },
   achievementTitle: {
     fontSize: 15,
     fontWeight: "bold",
-    color: "#5C4033",
+    color: theme.colors.tabActive,
     textAlign: "center",
     marginBottom: 6,
   },
   achievementDesc: {
     fontSize: 11,
-    color: "#6B4F3A",
+    color: theme.colors.tabInactive,
     textAlign: "center",
     marginBottom: 8,
   },
   achievementProgress: { width: "100%", alignItems: "center", gap: 6 },
-  achievementBar: { width: "100%", height: 5, borderRadius: 3 },
-  achievementDate: { fontSize: 11, color: "#7C5C42" },
-  categoriesContainer: { gap: 12 },
+  achievementBar: { width: "100%", height: 5, borderRadius: 3, backgroundColor: theme.colors.tabBackground3 },
+  achievementDate: { fontSize: 11, color: theme.colors.tabInactive },
+  categoriesContainer: { gap: 12, },
   categoryItem: { gap: 8 },
   categoryHeader: {
     flexDirection: "row",
@@ -987,49 +988,49 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   categoryDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
-  categoryName: { flex: 1, fontSize: 15, fontWeight: "500", color: "#5C4033" },
-  categoryCount: { fontSize: 15, fontWeight: "bold", color: "#8B4513" },
-  categoryBar: { height: 8, borderRadius: 4 },
+  categoryName: { flex: 1, fontSize: 15, fontWeight: "500", color: theme.colors.tabActive },
+  categoryCount: { fontSize: 15, fontWeight: "bold", color: theme.colors.tabActive },
+  categoryBar: { height: 8, borderRadius: 4, backgroundColor: theme.colors.tabBackground3 },
   professionalGrid: { gap: 16 },
   professionalItem: { marginBottom: 12 },
   professionalLabel: {
     fontSize: 15,
     fontWeight: "bold",
-    color: "#5C4033",
+    color: theme.colors.tabActive,
     marginBottom: 8,
   },
-  professionalValue: { fontSize: 14, color: "#6B4F3A" },
+  professionalValue: { fontSize: 14, color: theme.colors.tabInactive },
   specializationChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   specChip: {
-    backgroundColor: "#FFF5E1",
+    backgroundColor: theme.colors.tabBackground1,
     borderWidth: 1,
-    borderColor: "#D2B48C",
+    borderColor: theme.colors.tabBackground3,
     borderRadius: 8,
   },
   availabilityContainer: { gap: 6 },
-  availabilityText: { fontSize: 14, color: "#6B4F3A" },
-  availabilityTime: { fontSize: 13, color: "#7C5C42" },
+  availabilityText: { fontSize: 14, color: theme.colors.tabInactive },
+  availabilityTime: { fontSize: 13, color: theme.colors.tabInactive },
   certificationItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginVertical: 4,
   },
-  certificationText: { fontSize: 14, color: "#6B4F3A" },
+  certificationText: { fontSize: 14, color: theme.colors.tabInactive },
   skillsContainer: { gap: 16 },
   skillCategory: { gap: 8 },
-  skillCategoryTitle: { fontSize: 15, fontWeight: "bold", color: "#5C4033" },
+  skillCategoryTitle: { fontSize: 15, fontWeight: "bold", color: theme.colors.tabActive },
   chipContainer: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   primaryChip: {
-    backgroundColor: "#FFF5E1",
+    backgroundColor: theme.colors.tabBackground1,
     borderWidth: 1,
-    borderColor: "#D2B48C",
+    borderColor: theme.colors.tabBackground3,
     borderRadius: 8,
   },
   secondaryChip: {
-    backgroundColor: "#F5F5DC",
+    backgroundColor: theme.colors.tabBackground2,
     borderWidth: 1,
-    borderColor: "#D2B48C",
+    borderColor: theme.colors.tabBackground3,
     borderRadius: 8,
   },
   rescueCard: {
@@ -1037,14 +1038,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#FAF3E0",
+    backgroundColor: theme.colors.tabBackground1,
   },
   rescueImage: { height: 140 },
   rescueContent: { gap: 8, paddingTop: 10 },
-  rescueTitle: { fontSize: 15, fontWeight: "bold", color: "#5C4033" },
+  rescueTitle: { fontSize: 15, fontWeight: "bold", color: theme.colors.tabActive },
   rescueDetails: { gap: 6 },
   rescueDetailItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  rescueDetailText: { fontSize: 13, color: "#7C5C42" },
+  rescueDetailText: { fontSize: 13, color: theme.colors.tabInactive },
   rescueFooter: {
     marginTop: 8,
     flexDirection: "row",
@@ -1052,12 +1053,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statusChip: { height: 24, borderRadius: 12, justifyContent: "center" },
-  rescueCost: { fontSize: 13, fontWeight: "bold", color: "#8B4513" },
+  rescueCost: { fontSize: 13, fontWeight: "bold", color: theme.colors.tabActive },
   settingSection: { marginBottom: 16, gap: 12 },
   settingSectionTitle: {
     fontSize: 15,
     fontWeight: "bold",
-    color: "#5C4033",
+    color: theme.colors.tabActive,
     marginBottom: 6,
   },
   settingRow: {
@@ -1066,46 +1067,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   settingLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  settingLabel: { fontSize: 14, color: "#6B4F3A" },
+  settingLabel: { fontSize: 14, color: theme.colors.tabInactive },
   settingRowVertical: { gap: 10 },
   segmentedButtons: { marginTop: 6 },
-  settingDivider: { marginVertical: 12, backgroundColor: "#EDE0C8" },
+  settingDivider: { marginVertical: 12, backgroundColor: theme.colors.tabBackground3 },
   emergencyContact: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   contactInfo: { gap: 6 },
-  contactName: { fontSize: 16, fontWeight: "bold", color: "#5C4033" },
-  contactRelation: { fontSize: 13, color: "#7C5C42" },
-  contactPhone: { fontSize: 14, color: "#8B4513" },
+  contactName: { fontSize: 16, fontWeight: "bold", color: theme.colors.tabActive },
+  contactRelation: { fontSize: 13, color: theme.colors.tabInactive },
+  contactPhone: { fontSize: 14, color: theme.colors.tabActive },
   contactActions: { flexDirection: "row", gap: 6 },
-  contactButton: { backgroundColor: "#FFF5E1", borderRadius: 12 },
+  contactButton: { backgroundColor: theme.colors.tabBackground1, borderRadius: 12 },
   referralContainer: { gap: 16 },
   referralHeader: { gap: 6 },
-  referralTitle: { fontSize: 16, fontWeight: "bold", color: "#5C4033" },
-  referralDescription: { fontSize: 13, color: "#7C5C42" },
+  referralTitle: { fontSize: 16, fontWeight: "bold", color: theme.colors.tabActive },
+  referralDescription: { fontSize: 13, color: theme.colors.tabInactive },
   referralCodeContainer: { gap: 8 },
-  referralCodeLabel: { fontSize: 14, color: "#6B4F3A" },
+  referralCodeLabel: { fontSize: 14, color: theme.colors.tabInactive },
   referralCode: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFF5E1",
+    backgroundColor: theme.colors.tabBackground1,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#D2B48C",
+    borderColor: theme.colors.tabBackground3,
   },
-  referralCodeText: { fontSize: 15, fontWeight: "bold", color: "#8B4513" },
+  referralCodeText: { fontSize: 15, fontWeight: "bold", color: theme.colors.tabActive },
   referralStats: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
   },
   referralStat: { alignItems: "center" },
-  referralStatNumber: { fontSize: 16, fontWeight: "bold", color: "#8B4513" },
-  referralStatLabel: { fontSize: 12, color: "#7C5C42" },
-  shareButton: { marginTop: 10, borderRadius: 8 },
+  referralStatNumber: { fontSize: 16, fontWeight: "bold", color: theme.colors.tabActive },
+  referralStatLabel: { fontSize: 12, color: theme.colors.tabInactive },
+  shareButton: { marginTop: 10, borderRadius: 8, backgroundColor: theme.colors.tabActive },
+  logoutCard: {
+    backgroundColor: theme.colors.card,
+    marginHorizontal: theme.spacing.margin,
+    marginVertical: 8,
+    borderRadius: theme.spacing.radius,
+    elevation: 4,
+    overflow: "hidden",
+    
+  },
+  logoutButton: {
+    borderRadius: 8,
+    marginTop: 8,
+  },
 });
