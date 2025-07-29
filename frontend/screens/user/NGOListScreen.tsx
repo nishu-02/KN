@@ -391,7 +391,7 @@ export default function NGOListScreen() {
 const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: theme.spacing.margin * 2,
+    paddingBottom: theme.spacing.margin * 3,
   },
   header: {
     paddingHorizontal: theme.spacing.padding,

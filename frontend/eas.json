@@ -1,18 +1,37 @@
 {
   "cli": {
-    "version": ">= 16.17.0",
-    "appVersionSource": "remote"
+    "version": ">= 5.9.1"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.29.139:8000",
+        "GOOGLE_MAPS_API_KEY": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.29.139:8000",
+        "GOOGLE_MAPS_API_KEY": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://your-production-api.com",
+        "GOOGLE_MAPS_API_KEY": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+      }
     }
   },
   "submit": {

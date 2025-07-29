@@ -162,48 +162,17 @@ export default function SettingsScreen() {
     </Card>
   );
 
-  const LogoutSection = () => (
-    <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
-      <Card.Content>
-        <Button
-          mode="contained"
-          buttonColor="#FF4444"
-          textColor="white"
-          style={styles(theme).logoutButton}
-          icon="log-out-outline"
-          onPress={() => {
-            // Handle logout logic here
-            console.log("Logout pressed");
-          }}
-        >
-          Log Out
-        </Button>
-      </Card.Content>
-    </Card>
-  );
+
 
   const sections = [
     { title: "Notifications", component: NotificationSettings },
     { title: "Personal", component: PersonalSettings },
     { title: "Accessibility", component: AccessibilitySettings },
     { title: "Privacy & Security", component: PrivacySecuritySettings },
-    { title: "Account", component: LogoutSection },
   ];
 
   return (
     <View style={[styles(theme).container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <LinearGradient
-        colors={[theme.colors.card, theme.colors.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles(theme).header}
-      >
-        <View style={styles(theme).headerContent}>
-          <Text style={[styles(theme).karunaTitle, { color: theme.colors.primary }]}>Settings</Text>
-        </View>
-      </LinearGradient>
-
       {/* Settings Content */}
       <ScrollView style={styles(theme).content} showsVerticalScrollIndicator={false}>
         {sections.map((section, index) => (
@@ -220,6 +189,7 @@ export default function SettingsScreen() {
 const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
+    paddingBottom: theme.spacing.margin * 2,
   },
   header: {
     paddingHorizontal: theme.spacing.padding,
@@ -257,9 +227,5 @@ const styles = (theme: any) => StyleSheet.create({
   },
   sectionSpacing: {
     height: 16,
-  },
-  logoutButton: {
-    borderRadius: 8,
-    marginTop: 8,
   },
 });

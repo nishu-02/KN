@@ -10,11 +10,11 @@ import * as FileSystem from 'expo-file-system';
 // ===============================================
 // IMPORTANT: Install image manipulator with: expo install expo-image-manipulator
 const GEMINI_CONFIG = {
-  API_KEY: '', // 👈 PUT YOUR API KEY HERE
+  API_KEY: 'AIzaSyBU24O2jBGCyr-8k0sTFq7E4e0-XNuePh0', // 👈 PUT YOUR API KEY HERE
   MODEL: 'gemini-2.0-flash-exp',
   TIMEOUT: 90000, // 90 seconds for thorough analysis
   MAX_TOKENS: 2500, // Increased for detailed response
-  TEMPERATURE: 0.3, // Balanced for accuracy and detail
+  TEMPERATURE: 0.3, // Balanced for accuracy and detaila
 };
 // ===============================================
 
@@ -143,8 +143,8 @@ export default function UploadRescueScreen() {
       
       const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.MODEL}:generateContent?key=${GEMINI_CONFIG.API_KEY}`;
       
-      // Comprehensive prompt for veterinary analysis
-      const prompt = `You are a veterinary expert analyzing an image of a stray/rescue animal. Examine this image very carefully and provide a comprehensive analysis in JSON format.
+      // Comprehensive prompt for veterinary analysis matching API endpoints
+      const prompt = `You are a veterinary expert analyzing an image of a stray/rescue animal. Examine this image very carefully and provide a comprehensive analysis in JSON format that matches the required API structure.
 
 ANALYSIS INSTRUCTIONS:
 - Look closely at the animal's physical condition, posture, environment
@@ -154,30 +154,31 @@ ANALYSIS INSTRUCTIONS:
 - Assess urgency based on visible health condition
 - Provide specific, actionable care recommendations
 
-Respond with this EXACT JSON structure (fill every field with detailed observations):
+Respond with this EXACT JSON structure matching the API endpoints (fill every field with detailed observations):
 
 {
-  "title": "Descriptive title based on what you see (e.g., 'Injured Adult Street Dog with Leg Wound', 'Malnourished Kitten with Eye Infection')",
+  "title": "Descriptive title based on what you see (e.g., 'Injured Street Dog with Leg Wound', 'Malnourished Kitten with Eye Infection')",
   "description": "Detailed 2-3 sentence description of the animal's condition and situation visible in the image",
   "species": "Use exact terms: 'Canine' for dogs, 'Feline' for cats, 'Avian' for birds, or specific animal type",
+  "breed": "Specific breed if identifiable, otherwise 'Unknown' or 'Mixed'",
   "age": "Detailed age estimate with reasoning (e.g., 'Adult (2-4 years) - based on facial maturity and body size', 'Puppy (3-6 months) - small size and juvenile features')",
   "gender": "Male/Female/Unknown - only if anatomical features clearly visible",
   "weight": "Specific estimate based on body condition (e.g., '15-20 kg (appears underweight)', '5-8 kg (normal body condition)', or 'Unknown if not visible')",
   "severity": "Choose based on visible condition: 'Critical' (life-threatening, severe bleeding, unconscious), 'High' (significant injuries, obvious distress), 'Moderate' (visible injuries, some concern), 'Low' (minor issues, stable)",
-  "injurySummary": "Detailed description of ALL visible injuries, wounds, abnormalities. Include location, size, type. If none visible, state 'No obvious external injuries visible in this image'",
+  "injury_summary": "Detailed description of ALL visible injuries, wounds, abnormalities. Include location, size, type. If none visible, state 'No obvious external injuries visible in this image'",
   "symptoms": ["List ALL visible symptoms as separate items", "Be specific: 'Bleeding from left hind leg', 'Severe limping on right front paw', 'Matted fur with visible dirt', 'Eyes appear discharge', 'Visible ribs indicating malnutrition'"],
   "urgency": "Medical priority: 'Critical' (immediate emergency care), 'High' (care within 2-4 hours), 'Moderate' (care within 24 hours), 'Low' (routine care)",
   "behavior": "Describe behavior from visible cues: 'Calm and alert', 'Scared and defensive', 'Lethargic and weak', 'Aggressive posture', 'Friendly and approachable', etc.",
   "context": "Situation assessment: 'Street Stray', 'Abandoned Pet', 'Lost Pet', 'Wild Animal', 'Injured Rescue', 'Sick Stray'",
-  "careTips": ["Provide 3-4 specific care recommendations based on visible condition", "Examples: 'Keep wound clean and dry', 'Provide fresh water immediately', 'Handle very gently due to visible injuries', 'Keep animal warm and calm'"],
-  "actions": ["Provide 3-4 immediate action steps", "Examples: 'Contact emergency veterinary services', 'Secure safe transport to vet clinic', 'Apply gentle pressure to bleeding areas', 'Document all injuries with additional photos'"],
-  "vetTimeline": "Specific timeframe: 'Immediate', 'Within 1-2 hours', 'Within 4-6 hours', 'Within 24 hours', 'Routine care'",
-  "aiConfidence": "Assessment confidence: 'High' (clear image, obvious indicators), 'Medium' (some details unclear), 'Low' (poor image quality, many details obscured)",
-  "severityScore": "Rate severity 1-10 (1-2=Low, 3-4=Moderate, 5-7=High, 8-10=Critical). Provide single integer.",
-  "urgencyScore": "Rate urgency 1-10 (1-2=Low priority, 3-4=Moderate, 5-7=High, 8-10=Emergency). Provide single integer.",
-  "behaviorScore": "Rate behavior safety 1-10 (1-3=Dangerous/Aggressive, 4-6=Unpredictable, 7-8=Calm but wary, 9-10=Very safe/friendly). Provide single integer.",
-  "ageScore": "Rate age assessment confidence 1-10 (1-3=Very uncertain, 4-6=Moderate confidence, 7-8=Good confidence, 9-10=Very certain). Provide single integer.",
-  "confidenceScore": "Rate overall analysis confidence 1-10 (1-3=Low confidence, 4-6=Medium, 7-8=High, 9-10=Very high). Provide single integer."
+  "confidence_score": "Rate overall analysis confidence 1-10 (1-3=Low confidence, 4-6=Medium, 7-8=High, 9-10=Very high). Provide single integer.",
+  "care_tips": ["Provide 3-4 specific care recommendations based on visible condition", "Examples: 'Keep wound clean and dry', 'Provide fresh water immediately', 'Handle very gently due to visible injuries', 'Keep animal warm and calm'"],
+  "ai_analysis": {
+    "severity_score": "Rate severity 1-10 (1-2=Low, 3-4=Moderate, 5-7=High, 8-10=Critical). Provide single integer.",
+    "urgency_score": "Rate urgency 1-10 (1-2=Low priority, 3-4=Moderate, 5-7=High, 8-10=Emergency). Provide single integer.",
+    "behavior_score": "Rate behavior safety 1-10 (1-3=Dangerous/Aggressive, 4-6=Unpredictable, 7-8=Calm but wary, 9-10=Very safe/friendly). Provide single integer.",
+    "age_score": "Rate age assessment confidence 1-10 (1-3=Very uncertain, 4-6=Moderate confidence, 7-8=Good confidence, 9-10=Very certain). Provide single integer.",
+    "overall_confidence": "Rate overall analysis confidence 1-10 (1-3=Low confidence, 4-6=Medium, 7-8=High, 9-10=Very high). Provide single integer."
+  }
 }
 
 CRITICAL REQUIREMENTS:
@@ -330,7 +331,7 @@ CRITICAL REQUIREMENTS:
       // Validate required fields
       const requiredFields = [
         'title', 'description', 'species', 'age', 'severity', 
-        'injurySummary', 'urgency', 'behavior', 'context', 'vetTimeline'
+        'injury_summary', 'urgency', 'behavior', 'context'
       ];
       
       const missingFields = requiredFields.filter(field => 
@@ -343,11 +344,11 @@ CRITICAL REQUIREMENTS:
       }
 
       // Convert numerical scores to progress values (0.0 to 1.0)
-      const severityProgress = parsedData.severityScore ? Math.max(0, Math.min(1, parsedData.severityScore / 10)) : 0.5;
-      const urgencyProgress = parsedData.urgencyScore ? Math.max(0, Math.min(1, parsedData.urgencyScore / 10)) : 0.5;
-      const behaviorProgress = parsedData.behaviorScore ? Math.max(0, Math.min(1, parsedData.behaviorScore / 10)) : 0.5;
-      const ageProgress = parsedData.ageScore ? Math.max(0, Math.min(1, parsedData.ageScore / 10)) : 0.5;
-      const aiConfidenceProgress = parsedData.confidenceScore ? Math.max(0, Math.min(1, parsedData.confidenceScore / 10)) : 0.5;
+      const severityProgress = parsedData.ai_analysis?.severity_score ? Math.max(0, Math.min(1, parsedData.ai_analysis.severity_score / 10)) : 0.5;
+      const urgencyProgress = parsedData.ai_analysis?.urgency_score ? Math.max(0, Math.min(1, parsedData.ai_analysis.urgency_score / 10)) : 0.5;
+      const behaviorProgress = parsedData.ai_analysis?.behavior_score ? Math.max(0, Math.min(1, parsedData.ai_analysis.behavior_score / 10)) : 0.5;
+      const ageProgress = parsedData.ai_analysis?.age_score ? Math.max(0, Math.min(1, parsedData.ai_analysis.age_score / 10)) : 0.5;
+      const aiConfidenceProgress = parsedData.confidence_score ? Math.max(0, Math.min(1, parsedData.confidence_score / 10)) : 0.5;
 
       // Update state with comprehensive data
       setFields(prevFields => ({
@@ -362,22 +363,21 @@ CRITICAL REQUIREMENTS:
         
         // Health assessment
         severity: parsedData.severity || prevFields.severity,
-        injurySummary: parsedData.injurySummary || prevFields.injurySummary,
+        injurySummary: parsedData.injury_summary || prevFields.injurySummary,
         symptoms: Array.isArray(parsedData.symptoms) ? parsedData.symptoms : 
                  typeof parsedData.symptoms === 'string' ? [parsedData.symptoms] : prevFields.symptoms,
         urgency: parsedData.urgency || prevFields.urgency,
         behavior: parsedData.behavior || prevFields.behavior,
         context: parsedData.context || prevFields.context,
-        vetTimeline: parsedData.vetTimeline || prevFields.vetTimeline,
+        vetTimeline: "Within 2-4 hours", // Default timeline
         
         // AI analysis
-        aiConfidence: parsedData.aiConfidence || prevFields.aiConfidence,
+        aiConfidence: parsedData.confidence_score ? `${parsedData.confidence_score}/10` : prevFields.aiConfidence,
         
         // Care information
-        careTips: Array.isArray(parsedData.careTips) ? parsedData.careTips : 
-                 typeof parsedData.careTips === 'string' ? [parsedData.careTips] : prevFields.careTips,
-        actions: Array.isArray(parsedData.actions) ? parsedData.actions : 
-                typeof parsedData.actions === 'string' ? [parsedData.actions] : prevFields.actions,
+        careTips: Array.isArray(parsedData.care_tips) ? parsedData.care_tips : 
+                 typeof parsedData.care_tips === 'string' ? [parsedData.care_tips] : prevFields.careTips,
+        actions: ["Contact local rescue", "Document injuries", "Provide immediate care"], // Default actions
         
         // Progress values for card display
         severityProgress,
@@ -437,7 +437,7 @@ CRITICAL REQUIREMENTS:
       return;
     }
 
-    // Prepare data exactly as the card expects it
+    // Prepare data exactly as the API expects it
     const cardData = {
       // Required fields for RescueCase interface
       id: `rescue_${Date.now()}`, // Unique ID
@@ -483,6 +483,35 @@ CRITICAL REQUIREMENTS:
       // Care information
       careTips: fields.careTips,
       actions: fields.actions,
+      
+      // API-specific fields
+      report_id: `b1a2c3d4-e5f6-7890-1234-56789abcdef${Date.now()}`,
+      user_id: "user_123",
+      image_url: fields.image,
+      status: "pending",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      location_string: JSON.stringify({
+        latitude: fields.location.latitude,
+        longitude: fields.location.longitude,
+        address: "Current Location"
+      }),
+      latitude: fields.location.latitude,
+      longitude: fields.location.longitude,
+      ngo_assigned: null,
+      volunteer_assigned: null,
+      ngo_name: null,
+      volunteer_name: null,
+      confidence_score: Math.round(fields.aiConfidenceProgress * 10),
+      care_tips: fields.careTips,
+      report_data: {},
+      ai_analysis: {
+        severity_score: Math.round(fields.severityProgress * 10),
+        urgency_score: Math.round(fields.urgencyProgress * 10),
+        behavior_score: Math.round(fields.behaviorProgress * 10),
+        age_score: Math.round(fields.ageProgress * 10),
+        overall_confidence: Math.round(fields.aiConfidenceProgress * 10)
+      }
     };
     
     console.log('Submitting card data:', cardData);

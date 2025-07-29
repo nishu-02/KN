@@ -31,6 +31,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useThemeContext } from '../../theme';
 import SettingsScreen from './SettingsScreen';
 import { useNavigation } from '@react-navigation/native';
+import { useAppDispatch } from '../../core/redux/store';
+import { logoutUser } from '../../core/redux/slices/authSlice';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -240,6 +242,7 @@ const SectionCard: React.FC<{
 
 export default function UserProfileScreen() {
   const { theme,  } = useThemeContext();
+  const dispatch = useAppDispatch();
   const [notificationRange, setNotificationRange] = useState("25");
   const [isPrivate, setIsPrivate] = useState(false);
   const [language, setLanguage] = useState("english");
@@ -257,7 +260,7 @@ export default function UserProfileScreen() {
     categories: true,
   });
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const avatarScale = useRef(new Animated.Value(1)).current;
@@ -425,6 +428,16 @@ export default function UserProfileScreen() {
     navigation.navigate('Settings');
   };
 
+  // Handler for logout
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser());
+      // Navigation will be handled automatically by the App.tsx based on auth state
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
   return (
     <ScrollView
       style={themedStyles.container}
@@ -493,25 +506,25 @@ export default function UserProfileScreen() {
               number: 850,
               label: "Karma Points",
               icon: "star",
-              color: theme.colors.moderate,
+              color: "#FFD700",
             },
             {
               number: rescueStats.totalRescues,
               label: "Animals Saved",
               icon: "heart",
-              color: theme.colors.critical,
+              color: "red",
             },
             {
               number: 103,
               label: "Lives Touched",
               icon: "people",
-              color: theme.colors.accent,
+              color: "pink",
             },
             {
               number: `${rescueStats.successRate}%`,
               label: "Success Rate",
               icon: "checkmark-circle",
-              color: theme.colors.low,
+              color: "green",
             },
           ].map(({ number, label, icon, color }, index) => (
             <View key={index} style={themedStyles.statBox}>
@@ -832,6 +845,22 @@ export default function UserProfileScreen() {
           </Button>
         </View>
       </SectionCard>
+
+      {/* Logout Section */}
+      <Card style={themedStyles.logoutCard}>
+        <Card.Content>
+          <Button
+            mode="contained"
+            buttonColor="#FF4444"
+            textColor="white"
+            style={themedStyles.logoutButton}
+            icon="log-out-outline"
+            onPress={handleLogout}
+          >
+            Log Out
+          </Button>
+        </Card.Content>
+      </Card>
       {/* Edit Profile Modal */}
       <Modal
         visible={editModalVisible}
@@ -951,7 +980,7 @@ const styles = (theme: any) => StyleSheet.create({
   achievementProgress: { width: "100%", alignItems: "center", gap: 6 },
   achievementBar: { width: "100%", height: 5, borderRadius: 3, backgroundColor: theme.colors.tabBackground3 },
   achievementDate: { fontSize: 11, color: theme.colors.tabInactive },
-  categoriesContainer: { gap: 12 },
+  categoriesContainer: { gap: 12, },
   categoryItem: { gap: 8 },
   categoryHeader: {
     flexDirection: "row",
@@ -1080,4 +1109,17 @@ const styles = (theme: any) => StyleSheet.create({
   referralStatNumber: { fontSize: 16, fontWeight: "bold", color: theme.colors.tabActive },
   referralStatLabel: { fontSize: 12, color: theme.colors.tabInactive },
   shareButton: { marginTop: 10, borderRadius: 8, backgroundColor: theme.colors.tabActive },
+  logoutCard: {
+    backgroundColor: theme.colors.card,
+    marginHorizontal: theme.spacing.margin,
+    marginVertical: 8,
+    borderRadius: theme.spacing.radius,
+    elevation: 4,
+    overflow: "hidden",
+    
+  },
+  logoutButton: {
+    borderRadius: 8,
+    marginTop: 8,
+  },
 });

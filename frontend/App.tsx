@@ -12,20 +12,18 @@ import {
 } from "react-native-paper";
 
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import * as Notifications from "expo-notifications";
 import store, { RootState, useAppDispatch } from "./core/redux/store";
 import { initSession } from "./core/redux/slices/authSlice";
 import LoginScreen from "./screens/LoginScreen";
-import RegisterPage from "./screens/RegisterScreen";
-import RegisterNGOScreen from "./screens/RegisterNGOScreen";
-import RegisterIndividualScreen from "./screens/RegisterIndividualScreen";
-import NGODashboardScreen from "./screens/NGODashboardScreen";
+import NGODashboardScreen from "./screens/ngo/NGODashboardScreen";
 import { registerForPushNotificationsAsync } from "./PushTokenRegister";
 
 import UploadRescueScreen from "./screens/user/camera/UploadRescueScreen";
 import SplashScreen from "./screens/user/SplashScreen";
 import SettingsScreen from './screens/user/SettingsScreen';
+import NotificationScreen from './screens/user/NotificationScreen';
 
 import UserBottomTabs from "./screens/navigation/UserBottomTabs";
 import { ThemeContext, lightTheme, darkTheme } from "./theme";
@@ -35,7 +33,7 @@ function stripCustomThemeKeys(theme: any) {
   return rest;
 }
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -51,7 +49,7 @@ Notifications.setNotificationHandler({
 // Move RootNavigator outside App component to prevent recreation
 const RootNavigator = React.memo(() => {
   const dispatch = useAppDispatch();
-  const { initialized, authenticated, loading, user } = useSelector(
+  const { initialized, authenticated, loading, user, accountType } = useSelector(
     (s: RootState) => s.auth
   );
 
@@ -125,42 +123,26 @@ const RootNavigator = React.memo(() => {
       <StatusBar barStyle="dark-content" />
       <Stack.Navigator>
         {!authenticated ? (
-          <>
-            <Stack.Screen
-              name="SignIn"
-              component={LoginScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Register"
-              component={RegisterPage}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="RegisterNGO"
-              component={RegisterNGOScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="RegisterIndividual"
-              component={RegisterIndividualScreen}
-              options={{ headerShown: false }}
-            />
-          </>
+          <Stack.Screen
+            name="SignIn"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
         ) : (
           <>
+            <Stack.Screen
+              name="NGOAdminDashboard"
+              component={NGODashboardScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen
               name="UserHome"
               component={UserBottomTabs}
               options={{ headerShown: false }}
             />
-            <Stack.Screen
-              name="NGODashboard"
-              component={NGODashboardScreen}
-              options={{ headerShown: false }}
-            />
             <Stack.Screen name="UploadRescue" component={UploadRescueScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+            <Stack.Screen name="NotificationScreen" component={NotificationScreen} options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>
