@@ -30,14 +30,13 @@ class AppwriteNotificationService:
         """ Create topics for notifications if they don't exist """
         for topic_name, topic_id in self.TOPICS.items():
             try:
-                self.messaging.create_topics(
+                self.messaging.create_topic(
                     topic_id=topic_id,
-                    name=topic_name.replace("_", " ").title(),
-                    description=f"Topic for {topic_name} notifications"
+                    name=topic_name.replace("_", " ").title()
                 )
             except AppwriteException as e:
-                if e.code != 409: # Topic already exists
-                    print(f"Failed to create topic {topic_name}: {e.message}")
+                if getattr(e, 'code', None) != 409: # Topic already exists
+                    print(f"Failed to create topic {topic_name}: {getattr(e, 'message', str(e))}")
 
     def send_push_notifications(
         self,

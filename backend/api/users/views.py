@@ -76,6 +76,56 @@ class UserProfileViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
 
+    @action(detail=False, methods=['get'], url_path='whoami')
+    @log_api_request(user_logger)
+    def whoami(self, request):
+        """ Determine account type - returns 'user', 'ngo', or 'unknown' """
+        try:
+            user_id = request.user_id
+            
+            # Check if it's an NGO
+            try:
+                ngo = NGO.objects.get(appwrite_user_id=user_id)
+                user_logger.info(f"Account type determined: NGO - user_id={user_id}")
+                return Response({
+                    "account_type": "ngo",
+                    "entity_id": str(ngo.id),
+                    "name": ngo.name,
+                    "email": ngo.email
+                })
+            except NGO.DoesNotExist:
+                pass
+            
+            # Check if it's a regular user
+            try:
+                user_profile = UserProfile.objects.get(appwrite_user_id=user_id)
+                user_logger.info(f"Account type determined: User - user_id={user_id}")
+                return Response({
+                    "account_type": "user",
+                    "entity_id": str(user_profile.id),
+                    "name": user_profile.name,
+                    "email": user_profile.email,
+                    "is_volunteer": user_profile.is_volunteer
+                })
+            except UserProfile.DoesNotExist:
+                pass
+            
+            # Unknown account type
+            user_logger.warning(f"Unknown account type: user_id={user_id}")
+            return Response({
+                "account_type": "unknown",
+                "error": "Account not found in database"
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+        except Exception as e:
+            log_error_with_context(user_logger, e, {
+                'action': 'whoami',
+                'user_id': request.user_id
+            })
+            return Response({
+                "error": "Failed to determine account type"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['get'], url_path='me')
     @log_api_request(user_logger)
     def get_profile(self, request):
