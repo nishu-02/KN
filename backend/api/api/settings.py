@@ -35,9 +35,16 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-p9t3q!th8&!tt@8=%rd
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 # ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-# ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS]
 
 ALLOWED_HOSTS = ['*']
+
+# Appwrite configuration
+APPWRITE_ENDPOINT = os.getenv('APPWRITE_ENDPOINT', '')
+APPWRITE_PROJECT_ID = os.getenv('APPWRITE_PROJECT_ID', '')
+APPWRITE_API_KEY = os.getenv('APPWRITE_API_KEY', '')
+APPWRITE_DATABASE_ID = os.getenv('APPWRITE_DATABASE_ID', '')
+APPWRITE_REPORT_COLLECTION_ID = os.getenv('APPWRITE_REPORT_COLLECTION_ID', '')
+APPWRITE_BUCKET_ID = os.getenv('APPWRITE_BUCKET_ID', '')
 
 # Application definition
 
@@ -70,7 +77,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # 'middleware.appwrite_auth.AppwriteAuthMiddleware',
+    'utils.appwrite_middleware.AppwriteAuthenticationMiddleware',  # Custom Appwrite auth
 
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

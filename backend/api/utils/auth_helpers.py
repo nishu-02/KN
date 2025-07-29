@@ -4,14 +4,17 @@ from rest_framework.response import Response
 from rest_framework import status
 from appwrite.client import Client
 from appwrite.services.account import Account
+from appwrite.services.users import Users  # Updated: Imported for potential server-side verification
 from django.conf import settings
-from .appwrite_auth import appwrite_login_with_account_detection
+from .appwrite_auth import create_appwrite_session_with_api_key
 import json
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def appwrite_login(request):
     """
+    DEPRECATED: This function is replaced by frontend-only authentication.
     Appwrite-first login with account type detection
     - Appwrite handles authentication (credentials verification)
     - Django only provides account type information
@@ -26,7 +29,7 @@ def appwrite_login(request):
         }, status=status.HTTP_400_BAD_REQUEST)
     
     # Use Appwrite for authentication + account type detection
-    auth_result = appwrite_login_with_account_detection(email, password)
+    auth_result = create_appwrite_session_with_api_key(email, password)
     
     if not auth_result["success"]:
         return Response({
@@ -54,6 +57,7 @@ def appwrite_login(request):
             "storage": "Store appwrite_jwt + account_type locally"
         }
     })
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -92,6 +96,18 @@ def get_bearer_token(request):
         
         # Create session (login)
         session = account.create_email_session(email, password)
+        
+        # Updated: Add server-side verification of the user after session creation
+        if hasattr(settings, 'APPWRITE_API_KEY') and settings.APPWRITE_API_KEY:
+            verify_client = Client()
+            verify_client.set_endpoint(settings.APPWRITE_ENDPOINT)
+            verify_client.set_project(settings.APPWRITE_PROJECT_ID)
+            verify_client.set_key(settings.APPWRITE_API_KEY)
+            
+            users = Users(verify_client)
+            user_data = users.get(session['userId'])
+            if not user_data:
+                raise ValueError("User verification failed after session creation")
         
         # Get JWT token
         jwt = account.create_jwt()

@@ -128,13 +128,18 @@ const RootNavigator = React.memo(() => {
             component={LoginScreen}
             options={{ headerShown: false }}
           />
-        ) : (
+        ) : accountType === 'ngo' ? (
           <>
             <Stack.Screen
               name="NGOAdminDashboard"
               component={NGODashboardScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+            <Stack.Screen name="NotificationScreen" component={NotificationScreen} options={{ headerShown: false }} />
+          </>
+        ) : (
+          <>
             <Stack.Screen
               name="UserHome"
               component={UserBottomTabs}

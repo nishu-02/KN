@@ -1,7 +1,6 @@
-import AuthService from './authService';
 
-// Base API configuration
-const API_BASE_URL = 'http://192.168.1.6:8000';
+import AuthService from './authService';
+import { API_BASE_URL } from './config';
 
 // Generic API request function using AuthService
 async function apiRequest(endpoint: string, options: RequestInit = {}) {

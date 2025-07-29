@@ -16,6 +16,7 @@ import { useAppDispatch } from '../core/redux/store';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ImageBackground } from 'react-native';
+import AuthService from '../api/authService';
 
 interface FormData {
   email: string;
@@ -139,6 +140,9 @@ export default function LoginScreen() {
     }
   };
 
+  /**
+   * Handle user login using Redux action that wraps Appwrite authentication
+   */
   const handleLogin = async () => {
     if (loginAttempts >= 3) {
       showSnackbar('Too many attempts. Please wait 5 minutes before trying again.');
@@ -157,9 +161,33 @@ export default function LoginScreen() {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    dispatch(loginUser({ email: data.email, password: data.password }));
+    try {
+      // Use Redux action for login which handles Appwrite auth + Django account type lookup
+      await dispatch(loginUser({ email: data.email, password: data.password })).unwrap();
+      
+      setLoginAttempts(0); // Reset attempts on successful login
+      showSnackbar('Login successful! Welcome back.');
+      
+      // Navigation will be handled by useEffect watching authenticated state
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      let errorMessage = 'Login failed. ';
+      if (error?.includes('invalid credentials') || error?.includes('invalid_credentials')) {
+        errorMessage += 'Invalid email or password. Please check your credentials.';
+      } else if (error?.includes('session is active')) {
+        errorMessage += 'Already logged in. Refreshing...';
+      } else {
+        errorMessage += error || 'Please try again.';
+      }
+      
+      showSnackbar(errorMessage);
+    }
   };
 
+  /**
+   * Handle user registration using Redux action that wraps Appwrite + Django
+   */
   const handleRegister = async () => {
     const data = getCurrentFormData();
     
@@ -169,7 +197,7 @@ export default function LoginScreen() {
     }
 
     try {
-      // Create account with the new backend endpoint
+      // Use Redux action for registration which handles Appwrite account creation + Django profile
       await dispatch(createUserAccount({
         email: data.email,
         password: data.password,
@@ -179,16 +207,30 @@ export default function LoginScreen() {
 
       showSnackbar('Registration successful! Welcome to KarunaNidhan.');
       
+      // Clear form data
+      setCurrentFormData({
+        email: '',
+        password: '',
+        confirmPassword: '',
+        name: '',
+      });
+      
+      // Navigation will be handled by useEffect watching authenticated state
+      
     } catch (error: any) {
       console.error('Registration error:', error);
       let errorMessage = 'Registration failed. ';
       
-      if (error.message?.includes('already exists')) {
+      if (error?.includes('already exists') || error?.includes('user_already_exists')) {
         errorMessage += 'Account already exists. Please try logging in.';
-      } else if (error.message?.includes('rate limit')) {
+      } else if (error?.includes('rate limit') || error?.includes('too many requests')) {
         errorMessage += 'Too many requests. Please wait a moment.';
+      } else if (error?.includes('password')) {
+        errorMessage += 'Password must be at least 8 characters long.';
+      } else if (error?.includes('email')) {
+        errorMessage += 'Please enter a valid email address.';
       } else {
-        errorMessage += error.message || 'Unknown error occurred.';
+        errorMessage += error || 'Unknown error occurred.';
       }
       
       showSnackbar(errorMessage);

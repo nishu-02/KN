@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, Alert } from "react-native";
 import {
   Text,
   Card,
@@ -12,13 +12,46 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeContext } from "../../theme";
+import { useSelector } from "react-redux";
+import { logoutUser } from "../../core/redux/slices/authSlice";
+import { useAppDispatch } from "../../core/redux/store";
+import { useNavigation } from "@react-navigation/native";
 
 export default function SettingsScreen() {
   const { theme, toggleTheme, isDark } = useThemeContext();
+  const dispatch = useAppDispatch();
+  const navigation = useNavigation();
+  const { user, accountType } = useSelector((state: any) => state.auth);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await dispatch(logoutUser()).unwrap();
+              // Navigation will be handled automatically by App.tsx when auth state changes
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const NotificationSettings = () => (
     <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
@@ -162,9 +195,31 @@ export default function SettingsScreen() {
     </Card>
   );
 
-
+  const AccountSettings = () => (
+    <Card style={[styles(theme).sectionCard, theme.cardShadow, { backgroundColor: theme.colors.card }]} mode="elevated">
+      <Card.Content>
+        <Text variant="titleMedium" style={[styles(theme).sectionTitle, { color: theme.colors.primary }]}>
+          Account
+        </Text>
+        <List.Item
+          title={user?.name || "User"}
+          description={`${accountType?.toUpperCase() || 'USER'} Account • ${user?.email || ''}`}
+          left={() => <Ionicons name="person-circle-outline" size={24} color={theme.colors.primary} />}
+        />
+        <Divider style={{ marginVertical: 8 }} />
+        <List.Item
+          title="Logout"
+          description="Sign out of your account"
+          left={() => <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />}
+          onPress={handleLogout}
+          titleStyle={{ color: theme.colors.error }}
+        />
+      </Card.Content>
+    </Card>
+  );
 
   const sections = [
+    { title: "Account", component: AccountSettings },
     { title: "Notifications", component: NotificationSettings },
     { title: "Personal", component: PersonalSettings },
     { title: "Accessibility", component: AccessibilitySettings },
