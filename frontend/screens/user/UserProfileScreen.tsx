@@ -454,7 +454,7 @@ export default function UserProfileScreen() {
             resizeMode="cover"
           >
             <LinearGradient
-              colors={[theme.colors.primary, 'rgba(0,0,0,0.7)']}
+              colors={[theme.colors.primary, 'rgba(0,0,0.7,0)']}
               style={themedStyles.bannerOverlay}
             />
             <View style={themedStyles.avatarContainer}>
@@ -854,7 +854,7 @@ export default function UserProfileScreen() {
             buttonColor="#FF4444"
             textColor="white"
             style={themedStyles.logoutButton}
-            icon="log-out-outline"
+            icon="logout"
             onPress={handleLogout}
           >
             Log Out
@@ -896,13 +896,15 @@ const styles = (theme: any) => StyleSheet.create({
     fontWeight: "bold",
     fontSize: 26,
     color: theme.colors.card,
+    textShadowColor: 'black', 
+    textShadowRadius: 4,
     textAlign: "center",
     fontFamily: "cursive",
   },
-  title: { color: theme.colors.subtext, fontSize: 16, textAlign: "center", marginTop: 1 },
+  title: { color: 'white', textShadowColor: 'black', textShadowRadius: 4, fontSize: 16, textAlign: "center", marginTop: 1 },
   profileMeta: { flexDirection: "row", marginTop: 1, gap: 16 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { color: theme.colors.card, fontSize: 13 },
+  metaText: { color: 'white', textShadowColor: 'black', textShadowRadius: 4, fontSize: 13 },
   profileActions: {
     flexDirection: "row",
     justifyContent: "space-evenly",
@@ -990,7 +992,7 @@ const styles = (theme: any) => StyleSheet.create({
   categoryDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
   categoryName: { flex: 1, fontSize: 15, fontWeight: "500", color: theme.colors.tabActive },
   categoryCount: { fontSize: 15, fontWeight: "bold", color: theme.colors.tabActive },
-  categoryBar: { height: 8, borderRadius: 4, backgroundColor: theme.colors.tabBackground3 },
+  categoryBar: { height: 8, borderRadius: 4, backgroundColor: "#e9e9e9ff" },
   professionalGrid: { gap: 16 },
   professionalItem: { marginBottom: 12 },
   professionalLabel: {

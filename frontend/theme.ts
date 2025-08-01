@@ -7,7 +7,7 @@ export const lightTheme = {
   name: 'light',
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#ffb265ff', // Saffron Orange
+    primary: '#ffa041ff', // Saffron Orange
     secondary: '#0D47A1', // Deep Blue
     tertiary: '#2E7D32', // Forest Green
     background: '#FAFAFA', // Light Gray Background
