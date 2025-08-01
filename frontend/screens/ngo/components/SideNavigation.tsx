@@ -17,6 +17,7 @@ import {
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '../../../theme';
+import { useNavigation } from '@react-navigation/native';
 
 interface SideNavigationProps {
   activeTab: string;
@@ -26,6 +27,7 @@ interface SideNavigationProps {
 
 const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab, setSidebarOpen }) => {
   const { theme } = useThemeContext();
+  const navigation = useNavigation();
   const [animatedValue] = useState(new Animated.Value(0));
 
   useEffect(() => {
@@ -43,6 +45,31 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
     { key: 'timeline', title: 'Report Timeline', icon: 'time', badge: null },
     { key: 'volunteers', title: 'Volunteer Requests', icon: 'people', badge: '3' },
   ];
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: () => {
+            // Clear any stored authentication data
+            // Navigate to login screen
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' as never }],
+            });
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <Animated.View
@@ -125,7 +152,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
           <Button
             mode="outlined"
             icon="logout"
-            onPress={() => Alert.alert('Logout', 'Are you sure you want to logout?')}
+            onPress={handleLogout}
             style={styles.logoutButton}
             labelStyle={styles.logoutButtonText}
           >
@@ -201,30 +228,27 @@ const styles = StyleSheet.create({
   },
   verifiedText: {
     color: '#10B981',
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '600',
   },
   divider: {
     backgroundColor: '#E2E8F0',
-    height: 1,
-    marginVertical: 8,
+    marginVertical: 16,
   },
   navigationSection: {
     flex: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
   },
   navItem: {
     borderRadius: 12,
     marginVertical: 2,
-    paddingVertical: 8,
   },
   activeNavItem: {
-    backgroundColor: '#6366F115',
-    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
   },
   navItemText: {
-    color: '#1E293B',
+    fontSize: 16,
     fontWeight: '500',
-    fontSize: 14,
   },
   activeNavItemText: {
     color: '#6366F1',
@@ -233,33 +257,38 @@ const styles = StyleSheet.create({
   navBadge: {
     backgroundColor: '#EF4444',
     color: 'white',
-    fontSize: 10,
+    fontSize: 12,
   },
   sidebarFooter: {
     padding: 16,
+    gap: 16,
   },
   quickStats: {
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   quickStatsTitle: {
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
     color: '#1E293B',
-    fontSize: 12,
+    marginBottom: 8,
   },
   quickStatsText: {
+    fontSize: 12,
     color: '#64748B',
-    fontSize: 11,
+    marginBottom: 4,
   },
   logoutButton: {
     borderColor: '#EF4444',
-    borderRadius: 8,
+    borderWidth: 1,
   },
   logoutButtonText: {
     color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

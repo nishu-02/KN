@@ -49,6 +49,50 @@ const NGOAdminDashboard = () => {
     // Animation handled by components
   }, []);
 
+  // Get header title and subtitle based on active tab
+  const getHeaderInfo = () => {
+    switch (activeTab) {
+      case 'profile':
+        return {
+          title: 'NGO Dashboard',
+          subtitle: 'Animal Rescue Network',
+          stats: 'Active Reports: 5'
+        };
+      case 'reports':
+        return {
+          title: 'Assigned Reports',
+          subtitle: 'Manage rescue cases',
+          stats: '5 Active Cases'
+        };
+      case 'stats':
+        return {
+          title: 'Dashboard Stats',
+          subtitle: 'Performance metrics',
+          stats: '94% Success Rate'
+        };
+      case 'timeline':
+        return {
+          title: 'Report Timeline',
+          subtitle: 'Activity history',
+          stats: '12 Recent Activities'
+        };
+      case 'volunteers':
+        return {
+          title: 'Volunteer Requests',
+          subtitle: 'Manage applications',
+          stats: '3 Pending Requests'
+        };
+      default:
+        return {
+          title: 'NGO Dashboard',
+          subtitle: 'Animal Rescue Network',
+          stats: 'Active Reports: 5'
+        };
+    }
+  };
+
+  const headerInfo = getHeaderInfo();
+
   const renderContent = () => {
     switch (activeTab) {
       case 'profile':
@@ -68,15 +112,15 @@ const NGOAdminDashboard = () => {
 
   return (
     <View style={styles(theme).container}>
-      {/* Header Section - Matching UserHomeScreen */}
+      {/* Header Section - Dynamic based on active tab */}
       <Surface style={styles(theme).header}>
         <View style={styles(theme).headerRow}>
           <View style={styles(theme).headerTextContainer}>
-            <Text style={styles(theme).greeting}>NGO Dashboard</Text>
+            <Text style={styles(theme).greeting}>{headerInfo.title}</Text>
             <View style={styles(theme).headerSubRow}>
-              <Text style={styles(theme).subText}>Animal Rescue Network</Text>
+              <Text style={styles(theme).subText}>{headerInfo.subtitle}</Text>
               <View style={styles(theme).dot} />
-              <Text style={styles(theme).subText}>Active Reports: 5</Text>
+              <Text style={styles(theme).subText}>{headerInfo.stats}</Text>
             </View>
           </View>
           

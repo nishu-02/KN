@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Dimensions,
 } from 'react-native';
 import {
   Surface,
@@ -17,7 +18,10 @@ import {
   IconButton,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import { PieChart } from 'react-native-chart-kit';
 import { useThemeContext } from '../../../theme';
+
+const screenWidth = Dimensions.get('window').width;
 
 const NGOProfile: React.FC = () => {
   const { theme } = useThemeContext();
@@ -43,6 +47,65 @@ const NGOProfile: React.FC = () => {
     totalDonations: 15420,
     thisMonth: 3200,
   };
+
+  // Comprehensive pie chart data
+  const pieChartData = [
+    {
+      name: 'Completed Reports',
+      population: 138,
+      color: theme.colors.tertiary,
+      legendFontColor: theme.colors.text,
+      legendFontSize: 12,
+    },
+    {
+      name: 'Active Reports',
+      population: 5,
+      color: theme.colors.secondary,
+      legendFontColor: theme.colors.text,
+      legendFontSize: 12,
+    },
+    {
+      name: 'Pending Reports',
+      population: 4,
+      color: '#F59E0B',
+      legendFontColor: theme.colors.text,
+      legendFontSize: 12,
+    },
+  ];
+
+  const volunteerChartData = [
+    {
+      name: 'Active Volunteers',
+      population: 18,
+      color: theme.colors.primary,
+      legendFontColor: theme.colors.text,
+      legendFontSize: 12,
+    },
+    {
+      name: 'New Volunteers',
+      population: 5,
+      color: theme.colors.secondary,
+      legendFontColor: theme.colors.text,
+      legendFontSize: 12,
+    },
+  ];
+
+  const financialChartData = [
+    {
+      name: 'Total Donations',
+      population: 15420,
+      color: theme.colors.tertiary,
+      legendFontColor: theme.colors.text,
+      legendFontSize: 12,
+    },
+    {
+      name: 'This Month',
+      population: 3200,
+      color: theme.colors.primary,
+      legendFontColor: theme.colors.text,
+      legendFontSize: 12,
+    },
+  ];
 
   const renderStatCard = (title: string, value: string | number, subtitle: string, icon: string, color: string, delay: number = 0) => (
     <View
@@ -114,16 +177,90 @@ const NGOProfile: React.FC = () => {
         </Card>
       </View>
 
-      {/* Stats Section */}
-      <View style={styles(theme).statsSection}>
-        <Text style={styles(theme).sectionTitle}>Key Statistics</Text>
+      {/* Comprehensive Pie Charts Section */}
+      <View style={styles(theme).chartsSection}>
+        <Text style={styles(theme).sectionTitle}>Key Statistics Overview</Text>
+        
+        {/* Reports Distribution Chart */}
+        <Card style={styles(theme).chartCard}>
+          <Card.Content style={styles(theme).chartCardContent}>
+            <Text style={styles(theme).chartTitle}>Reports Distribution</Text>
+            <Text style={styles(theme).chartSubtitle}>Total: {ngoData.totalReports} reports</Text>
+            <PieChart
+              data={pieChartData}
+              width={screenWidth - 80}
+              height={200}
+              chartConfig={{
+                backgroundColor: theme.colors.card,
+                backgroundGradientFrom: theme.colors.card,
+                backgroundGradientTo: theme.colors.card,
+                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              }}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="15"
+              absolute
+            />
+          </Card.Content>
+        </Card>
+
+        {/* Volunteer Distribution Chart */}
+        <Card style={styles(theme).chartCard}>
+          <Card.Content style={styles(theme).chartCardContent}>
+            <Text style={styles(theme).chartTitle}>Volunteer Distribution</Text>
+            <Text style={styles(theme).chartSubtitle}>Total: {ngoData.volunteers} volunteers</Text>
+            <PieChart
+              data={volunteerChartData}
+              width={screenWidth - 80}
+              height={200}
+              chartConfig={{
+                backgroundColor: theme.colors.card,
+                backgroundGradientFrom: theme.colors.card,
+                backgroundGradientTo: theme.colors.card,
+                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              }}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="15"
+              absolute
+            />
+          </Card.Content>
+        </Card>
+
+        {/* Financial Overview Chart */}
+        <Card style={styles(theme).chartCard}>
+          <Card.Content style={styles(theme).chartCardContent}>
+            <Text style={styles(theme).chartTitle}>Financial Overview</Text>
+            <Text style={styles(theme).chartSubtitle}>Total: ${ngoData.totalDonations.toLocaleString()}</Text>
+            <PieChart
+              data={financialChartData}
+              width={screenWidth - 80}
+              height={200}
+              chartConfig={{
+                backgroundColor: theme.colors.card,
+                backgroundGradientFrom: theme.colors.card,
+                backgroundGradientTo: theme.colors.card,
+                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              }}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="15"
+              absolute
+            />
+          </Card.Content>
+        </Card>
+      </View>
+
+      {/* Quick Stats Cards */}
+      <View style={styles(theme).quickStatsSection}>
+        <Text style={styles(theme).sectionTitle}>Quick Metrics</Text>
         <View style={styles(theme).statsGrid}>
           {renderStatCard(
-            ngoData.totalReports.toString(),
-            'Total Reports',
-            'All time',
-            'document-text',
-            theme.colors.primary,
+            ngoData.successRate + '%',
+            'Success Rate',
+            'Completed successfully',
+            'checkmark-circle',
+            theme.colors.tertiary,
             0
           )}
           {renderStatCard(
@@ -133,22 +270,6 @@ const NGOProfile: React.FC = () => {
             'time',
             theme.colors.secondary,
             100
-          )}
-          {renderStatCard(
-            ngoData.successRate + '%',
-            'Success Rate',
-            'Completed successfully',
-            'checkmark-circle',
-            theme.colors.tertiary,
-            200
-          )}
-          {renderStatCard(
-            ngoData.volunteers.toString(),
-            'Volunteers',
-            'Active members',
-            'people',
-            theme.colors.primary,
-            300
           )}
         </View>
       </View>
@@ -301,7 +422,7 @@ const styles = (theme: any) => StyleSheet.create({
     color: theme.colors.subtext,
     marginLeft: 12,
   },
-  statsSection: {
+  chartsSection: {
     margin: theme.spacing.margin,
   },
   sectionTitle: {
@@ -309,6 +430,33 @@ const styles = (theme: any) => StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.primary,
     marginBottom: 16,
+  },
+  chartCard: {
+    borderRadius: theme.spacing.radius,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+    marginBottom: 16,
+  },
+  chartCardContent: {
+    padding: theme.spacing.padding,
+    alignItems: 'center',
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  chartSubtitle: {
+    fontSize: 14,
+    color: theme.colors.subtext,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  quickStatsSection: {
+    margin: theme.spacing.margin,
   },
   statsGrid: {
     flexDirection: 'row',
