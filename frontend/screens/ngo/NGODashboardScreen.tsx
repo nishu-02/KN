@@ -6,33 +6,22 @@ import {
   Dimensions,
   TouchableOpacity,
   Alert,
-  Animated,
   Platform,
 } from 'react-native';
 import {
-  Provider as PaperProvider,
-  MD3LightTheme,
-  Appbar,
-  Card,
   Text,
-  Button,
+  Card,
   Chip,
-  Avatar,
+  Button,
+  Divider,
   List,
-  FAB,
   IconButton,
   Surface,
   Badge,
   ProgressBar,
-  Searchbar,
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
 import { useThemeContext } from '../../theme';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
@@ -44,44 +33,20 @@ import ReportTimeline from './components/ReportTimeline';
 import VolunteerRequests from './components/VolunteerRequests';
 import SideNavigation from './components/SideNavigation';
 
-const { width, height } = Dimensions.get('window');
-
-// Enhanced Material Design 3 theme
-const theme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: '#6366F1', // Indigo
-    secondary: '#8B5CF6', // Violet
-    surface: '#FFFFFF',
-    background: '#F8FAFC', // Slate 50
-    onSurface: '#1E293B', // Slate 800
-    onBackground: '#334155', // Slate 700
-    surfaceVariant: '#F1F5F9', // Slate 100
-    outline: '#CBD5E1', // Slate 300
-    error: '#EF4444', // Red 500
-    success: '#10B981', // Emerald 500
-    warning: '#F59E0B', // Amber 500
-    info: '#3B82F6', // Blue 500
-  },
-};
+const screenWidth = Dimensions.get('window').width;
 
 const NGOAdminDashboard = () => {
-  const { theme: appTheme } = useThemeContext();
+  const { theme } = useThemeContext();
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('profile');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications] = useState(2);
-  const [animatedValue] = useState(new Animated.Value(0));
-  const [fadeAnim] = useState(new Animated.Value(1));
+  const [animatedValue] = useState(0);
+  const [fadeAnim] = useState(1);
 
   useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
+    // Animation handled by components
   }, []);
 
   const renderContent = () => {
@@ -102,137 +67,134 @@ const NGOAdminDashboard = () => {
   };
 
   return (
-    <PaperProvider theme={theme}>
-      <View style={styles.container}>
-        {/* Enhanced Header with proper height */}
-        <Surface style={styles.header} elevation={2}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity
-              onPress={() => setSidebarOpen(!sidebarOpen)}
-              style={styles.menuButton}
-            >
-              <Ionicons name="menu" size={28} color={theme.colors.onSurface} />
-            </TouchableOpacity>
-            
-            <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>NGO Dashboard</Text>
-              <Text style={styles.headerSubtitle}>Animal Rescue Network</Text>
-            </View>
-            
-            <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.notificationButton}>
-                <Ionicons name="notifications-outline" size={28} color={theme.colors.onSurface} />
-                {notifications > 0 && (
-                  <Badge style={styles.notificationBadge}>{notifications}</Badge>
-                )}
-              </TouchableOpacity>
-              <Avatar.Image
-                size={44}
-                source={{
-                  uri: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=100&h=100&fit=crop&crop=center',
-                }}
-                style={styles.headerAvatar}
-              />
+    <View style={styles(theme).container}>
+      {/* Header Section - Matching UserHomeScreen */}
+      <Surface style={styles(theme).header}>
+        <View style={styles(theme).headerRow}>
+          <View style={styles(theme).headerTextContainer}>
+            <Text style={styles(theme).greeting}>NGO Dashboard</Text>
+            <View style={styles(theme).headerSubRow}>
+              <Text style={styles(theme).subText}>Animal Rescue Network</Text>
+              <View style={styles(theme).dot} />
+              <Text style={styles(theme).subText}>Active Reports: 5</Text>
             </View>
           </View>
-        </Surface>
-        
-        <View style={styles.main}>
-          {sidebarOpen && <SideNavigation activeTab={activeTab} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
-          <Animated.View
-            style={[
-              styles.contentContainer,
-              {
-                transform: [
-                  {
-                    translateX: sidebarOpen ? 280 : 0,
-                  },
-                ],
-                opacity: fadeAnim,
-              },
-            ]}
-          >
-            {renderContent()}
-          </Animated.View>
+          
+          <View style={styles(theme).headerNotifContainer}>
+            <TouchableOpacity
+              onPress={() => setSidebarOpen(!sidebarOpen)}
+              style={styles(theme).iconSpacing}
+            >
+              <Ionicons name="menu" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles(theme).headerNotifContainer}>
+            <TouchableOpacity style={styles(theme).iconSpacing}>
+              <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
+              {notifications > 0 && (
+                <Badge style={styles(theme).notifBadge}>{notifications}</Badge>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-        
-        {/* Enhanced Floating Action Button */}
-        <FAB
-          icon="plus"
-          style={styles.fab}
-          onPress={() => Alert.alert('Quick Action', 'What would you like to add?')}
-        />
+      </Surface>
+      
+      <View style={styles(theme).main}>
+        {sidebarOpen && <SideNavigation activeTab={activeTab} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+        <View
+          style={[
+            styles(theme).contentContainer,
+            {
+              transform: [
+                {
+                  translateX: sidebarOpen ? 280 : 0,
+                },
+              ],
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          {renderContent()}
+        </View>
       </View>
-    </PaperProvider>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-
+const styles = (theme: any) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: theme.colors.background 
   },
   header: {
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline,
-    paddingTop: Platform.OS === 'ios' ? 60 : 30,
-    paddingBottom: 20,
-    minHeight: 100,
+    paddingTop: 40,
+    paddingBottom: theme.spacing.padding,
+    paddingHorizontal: theme.spacing.padding,
+    borderBottomLeftRadius: theme.spacing.radius,
+    borderBottomRightRadius: theme.spacing.radius,
+    backgroundColor: theme.colors.tabBackground1,
   },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  menuButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surfaceVariant,
+  headerTextContainer: { 
+    flex: 1, 
+    flexWrap: 'wrap' 
   },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 16,
+  greeting: {
+    fontFamily: 'cursive',
+    fontSize: (theme.spacing.fontLarge ? theme.spacing.fontLarge + 6 : 36),
+    color: theme.colors.text,
+    fontWeight: "600",
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: theme.colors.onSurface,
-    marginBottom: 4,
+  headerSubRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginTop: 6, 
+    color: 'black' 
   },
-  headerSubtitle: {
+  subText: {
     fontSize: 14,
-    color: theme.colors.onBackground,
-    fontWeight: '400',
+    color: 'black',
+    fontWeight: "500",
+    flexWrap: 'wrap',
+    paddingRight: 25,
+    flex: 1,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.primary,
+    marginHorizontal: 8,
   },
-  notificationButton: {
-    position: 'relative',
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surfaceVariant,
+  iconSpacing: { 
+    marginHorizontal: 2 
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: theme.colors.error,
+  headerNotifContainer: {
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: theme.colors.card,
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+  },
+  notifBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: theme.colors.critical,
+    color: theme.colors.text,
     fontSize: 12,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-  },
-  headerAvatar: {
-    borderWidth: 2,
-    borderColor: theme.colors.outline,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.card,
   },
   main: {
     flex: 1,
@@ -240,15 +202,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingTop: 8,
     width: '100%',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    backgroundColor: theme.colors.primary,
-    elevation: 6,
   },
 });
 
