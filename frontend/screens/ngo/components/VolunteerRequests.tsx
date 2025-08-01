@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   statusChip: {
-    height: 24,
+    height: 32,
   },
   statusText: {
     fontSize: 10,

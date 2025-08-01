@@ -108,14 +108,7 @@ const NGOProfile: React.FC = () => {
   ];
 
   const renderStatCard = (title: string, value: string | number, subtitle: string, icon: string, color: string, delay: number = 0) => (
-    <View
-      style={[
-        styles(theme).statCard,
-        {
-          opacity: animatedValue,
-        },
-      ]}
-    >
+    <View style={styles(theme).statCard}>
       <Card style={styles(theme).card}>
         <Card.Content style={styles(theme).cardContent}>
           <View style={styles(theme).statHeader}>
@@ -270,6 +263,22 @@ const NGOProfile: React.FC = () => {
             'time',
             theme.colors.secondary,
             100
+          )}
+          {renderStatCard(
+            ngoData.totalReports.toString(),
+            'Total Reports',
+            'All time',
+            'document-text',
+            theme.colors.primary,
+            200
+          )}
+          {renderStatCard(
+            ngoData.volunteers.toString(),
+            'Volunteers',
+            'Active members',
+            'people',
+            theme.colors.primary,
+            300
           )}
         </View>
       </View>
@@ -426,10 +435,10 @@ const styles = (theme: any) => StyleSheet.create({
     margin: theme.spacing.margin,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: theme.colors.primary,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   chartCard: {
     borderRadius: theme.spacing.radius,
@@ -457,6 +466,7 @@ const styles = (theme: any) => StyleSheet.create({
   },
   quickStatsSection: {
     margin: theme.spacing.margin,
+    marginTop: 8,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -464,7 +474,8 @@ const styles = (theme: any) => StyleSheet.create({
     gap: 16,
   },
   statCard: {
-    width: '48%',
+    width: '100%',
+    marginBottom: 8,
   },
   card: {
     backgroundColor: theme.colors.card,

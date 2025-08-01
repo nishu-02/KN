@@ -27,7 +27,13 @@ interface SideNavigationProps {
 
 const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab, setSidebarOpen }) => {
   const { theme } = useThemeContext();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  // Import Redux dispatch
+  // @ts-ignore
+  const { useAppDispatch } = require('../../../core/redux/store');
+  // @ts-ignore
+  const { logoutUser } = require('../../../core/redux/slices/authSlice');
+  const dispatch = useAppDispatch();
   const [animatedValue] = useState(new Animated.Value(0));
 
   useEffect(() => {
@@ -46,7 +52,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
     { key: 'volunteers', title: 'Volunteer Requests', icon: 'people', badge: '3' },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
@@ -58,13 +64,10 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: () => {
-            // Clear any stored authentication data
-            // Navigate to login screen
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' as never }],
-            });
+          onPress: async () => {
+            // Dispatch logoutUser Redux action
+            dispatch(logoutUser());
+            // Navigation will be handled automatically by App.tsx when auth state changes
           },
         },
       ]

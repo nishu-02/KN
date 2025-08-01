@@ -115,7 +115,17 @@ const NGOAdminDashboard = () => {
       {/* Header Section - Dynamic based on active tab */}
       <Surface style={styles(theme).header}>
         <View style={styles(theme).headerRow}>
-          <View style={styles(theme).headerTextContainer}>
+          {/* Sidebar Toggle Icon - Far Left */}
+          <View style={{ marginRight: 12 }}>
+            <TouchableOpacity
+              onPress={() => setSidebarOpen(true)}
+              style={styles(theme).iconSpacing}
+            >
+              <Ionicons name="menu" size={28} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+          {/* NGO Info and Page Details */}
+          <View style={[styles(theme).headerTextContainer, { flex: 1 }]}> 
             <Text style={styles(theme).greeting}>{headerInfo.title}</Text>
             <View style={styles(theme).headerSubRow}>
               <Text style={styles(theme).subText}>{headerInfo.subtitle}</Text>
@@ -123,16 +133,7 @@ const NGOAdminDashboard = () => {
               <Text style={styles(theme).subText}>{headerInfo.stats}</Text>
             </View>
           </View>
-          
-          <View style={styles(theme).headerNotifContainer}>
-            <TouchableOpacity
-              onPress={() => setSidebarOpen(!sidebarOpen)}
-              style={styles(theme).iconSpacing}
-            >
-              <Ionicons name="menu" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-          
+          {/* Notifications Icon - Right */}
           <View style={styles(theme).headerNotifContainer}>
             <TouchableOpacity style={styles(theme).iconSpacing}>
               <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
@@ -143,7 +144,6 @@ const NGOAdminDashboard = () => {
           </View>
         </View>
       </Surface>
-      
       <View style={styles(theme).main}>
         {sidebarOpen && <SideNavigation activeTab={activeTab} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
         <View
@@ -167,8 +167,8 @@ const NGOAdminDashboard = () => {
 };
 
 const styles = (theme: any) => StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: theme.colors.background 
   },
   header: {
