@@ -264,6 +264,7 @@ const styles = StyleSheet.create({
   },
   sidebarFooter: {
     padding: 16,
+    paddingBottom: 44,
     gap: 16,
   },
   quickStats: {

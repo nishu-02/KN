@@ -1084,7 +1084,7 @@ const styles = (theme: any) => StyleSheet.create({
   contactPhone: { fontSize: 14, color: theme.colors.tabActive },
   contactActions: { flexDirection: "row", gap: 6 },
   contactButton: { backgroundColor: theme.colors.tabBackground1, borderRadius: 12 },
-  referralContainer: { gap: 16 },
+  referralContainer: { gap: 10 },
   referralHeader: { gap: 6 },
   referralTitle: { fontSize: 16, fontWeight: "bold", color: theme.colors.tabActive },
   referralDescription: { fontSize: 13, color: theme.colors.tabInactive },
