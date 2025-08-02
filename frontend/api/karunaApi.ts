@@ -44,6 +44,8 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
   return response.json();
 }
 
+
+
 // Notification API functions
 export const notificationApi = {
   // Register device for push notifications
@@ -89,6 +91,9 @@ export const notificationApi = {
     });
   },
 };
+
+
+
 
 // Reports API functions
 export const reportsApi = {
@@ -146,21 +151,14 @@ export const reportsApi = {
   },
 };
 
-// User API functions
-export const userApi = {
-  // Get user profile
-  getUserProfile: async (userId: string) => {
-    return apiRequest(`/user/profile/${userId}/`);
-  },
 
-  // Update user profile
-  updateUserProfile: async (userId: string, data: any) => {
-    return apiRequest(`/user/profile/${userId}/`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  },
-};
+
+// User API functions - Updated to use the new userApi.ts file
+// These functions are now available in the separate userApi.ts file
+// import { userApi } from './userApi';
+
+
+
 
 // NGO API functions
 export const ngoApi = {
@@ -192,6 +190,5 @@ export const ngoApi = {
 export default {
   notificationApi,
   reportsApi,
-  userApi,
   ngoApi,
 }; 

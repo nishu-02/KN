@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { 
   TextInput, 
   Button, 
@@ -252,147 +252,153 @@ export default function LoginScreen() {
         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.6)']}
         style={styles.gradientOverlay}
       >
-        <ScrollView 
-          contentContainerStyle={styles.container}
-          showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, width: '100%' }}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text variant="headlineLarge" style={styles.title}>
-              Welcome to KarunaNidhan
-            </Text>
-            <Text style={styles.subtitle}>
-              Join us in making a difference for animals in need
-            </Text>
-          </View>
-
-          {/* User Type Tabs */}
-          <Surface style={styles.tabContainer} elevation={4}>
-            <SegmentedButtons
-              value={activeTab}
-              onValueChange={value => setActiveTab(value as 'user' | 'ngo')}
-              buttons={[
-                { value: 'user', label: 'User', icon: 'account' },
-                { value: 'ngo', label: 'NGO', icon: 'office-building' },
-              ]}
-              style={styles.segmentedButtons}
-            />
-          </Surface>
-
-          {/* Login/Register Toggle */}
-          <Surface style={styles.modeContainer} elevation={2}>
-            <SegmentedButtons
-              value={isLoginMode ? 'login' : 'register'}
-              onValueChange={value => setIsLoginMode(value === 'login')}
-              buttons={[
-                { value: 'login', label: 'Login' },
-                { value: 'register', label: 'Register' },
-              ]}
-              style={styles.modeButtons}
-            />
-          </Surface>
-
-          {/* Form Card */}
-          <Card style={styles.formCard} mode="elevated">
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.formTitle}>
-                {isLoginMode ? 'Login' : 'Register'} as {activeTab === 'user' ? 'User' : 'NGO'}
+          <ScrollView
+            contentContainerStyle={styles.container}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant="headlineLarge" style={styles.title}>
+                Welcome to KarunaNidhan
               </Text>
+              <Text style={styles.subtitle}>
+                Join us in making a difference for animals in need
+              </Text>
+            </View>
 
-              {/* Name Field (only for registration) */}
-              {!isLoginMode && (
+            {/* User Type Tabs */}
+            <Surface style={styles.tabContainer} elevation={4}>
+              <SegmentedButtons
+                value={activeTab}
+                onValueChange={value => setActiveTab(value as 'user' | 'ngo')}
+                buttons={[
+                  { value: 'user', label: 'User', icon: 'account' },
+                  { value: 'ngo', label: 'NGO', icon: 'office-building' },
+                ]}
+                style={styles.segmentedButtons}
+              />
+            </Surface>
+
+            {/* Login/Register Toggle */}
+            <Surface style={styles.modeContainer} elevation={2}>
+              <SegmentedButtons
+                value={isLoginMode ? 'login' : 'register'}
+                onValueChange={value => setIsLoginMode(value === 'login')}
+                buttons={[
+                  { value: 'login', label: 'Login' },
+                  { value: 'register', label: 'Register' },
+                ]}
+                style={styles.modeButtons}
+              />
+            </Surface>
+
+            {/* Form Card */}
+            <Card style={styles.formCard} mode="elevated">
+              <Card.Content>
+                <Text variant="titleMedium" style={styles.formTitle}>
+                  {isLoginMode ? 'Login' : 'Register'} as {activeTab === 'user' ? 'User' : 'NGO'}
+                </Text>
+
+                {/* Name Field (only for registration) */}
+                {!isLoginMode && (
+                  <TextInput
+                    label="Full Name"
+                    value={getCurrentFormData().name}
+                    onChangeText={(text) => handleInputChange('name', text)}
+                    style={styles.input}
+                    mode="outlined"
+                    left={<TextInput.Icon icon="account" />}
+                    disabled={loading}
+                  />
+                )}
+
+                {/* Email Field */}
                 <TextInput
-                  label="Full Name"
-                  value={getCurrentFormData().name}
-                  onChangeText={(text) => handleInputChange('name', text)}
+                  label="Email"
+                  value={getCurrentFormData().email}
+                  onChangeText={(text) => handleInputChange('email', text)}
                   style={styles.input}
                   mode="outlined"
-                  left={<TextInput.Icon icon="account" />}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  left={<TextInput.Icon icon="email" />}
                   disabled={loading}
                 />
-              )}
 
-              {/* Email Field */}
-              <TextInput
-                label="Email"
-                value={getCurrentFormData().email}
-                onChangeText={(text) => handleInputChange('email', text)}
-                style={styles.input}
-                mode="outlined"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                left={<TextInput.Icon icon="email" />}
-                disabled={loading}
-              />
-
-              {/* Password Field */}
-              <TextInput
-                label="Password"
-                value={getCurrentFormData().password}
-                onChangeText={(text) => handleInputChange('password', text)}
-                style={styles.input}
-                mode="outlined"
-                secureTextEntry
-                left={<TextInput.Icon icon="lock" />}
-                disabled={loading}
-              />
-
-              {/* Confirm Password Field (only for registration) */}
-              {!isLoginMode && (
+                {/* Password Field */}
                 <TextInput
-                  label="Confirm Password"
-                  value={getCurrentFormData().confirmPassword}
-                  onChangeText={(text) => handleInputChange('confirmPassword', text)}
+                  label="Password"
+                  value={getCurrentFormData().password}
+                  onChangeText={(text) => handleInputChange('password', text)}
                   style={styles.input}
                   mode="outlined"
                   secureTextEntry
-                  left={<TextInput.Icon icon="lock-check" />}
+                  left={<TextInput.Icon icon="lock" />}
                   disabled={loading}
-                  error={getCurrentFormData().confirmPassword && 
-                         getCurrentFormData().password !== getCurrentFormData().confirmPassword}
                 />
-              )}
 
-              {/* Action Button */}
-              <Button
-                mode="contained"
-                onPress={isLoginMode ? handleLogin : handleRegister}
-                loading={loading}
-                disabled={!isFormValid() || loading || loginAttempts >= 3}
-                style={styles.actionButton}
-                contentStyle={styles.buttonContent}
-              >
-                {loading 
-                  ? 'Processing...' 
-                  : (isLoginMode ? 'Login' : 'Register')
-                }
-              </Button>
+                {/* Confirm Password Field (only for registration) */}
+                {!isLoginMode && (
+                  <TextInput
+                    label="Confirm Password"
+                    value={getCurrentFormData().confirmPassword}
+                    onChangeText={(text) => handleInputChange('confirmPassword', text)}
+                    style={styles.input}
+                    mode="outlined"
+                    secureTextEntry
+                    left={<TextInput.Icon icon="lock-check" />}
+                    disabled={loading}
+                    error={getCurrentFormData().confirmPassword &&
+                           getCurrentFormData().password !== getCurrentFormData().confirmPassword}
+                  />
+                )}
 
-              {/* Reset Attempts Button */}
-              {loginAttempts >= 3 && (
+                {/* Action Button */}
                 <Button
-                  mode="text"
-                  onPress={resetAttempts}
-                  style={styles.resetButton}
+                  mode="contained"
+                  onPress={isLoginMode ? handleLogin : handleRegister}
+                  loading={loading}
+                  disabled={!isFormValid() || loading || loginAttempts >= 3}
+                  style={styles.actionButton}
+                  contentStyle={styles.buttonContent}
                 >
-                  Reset and Try Again
+                  {loading
+                    ? 'Processing...'
+                    : (isLoginMode ? 'Login' : 'Register')
+                  }
                 </Button>
-              )}
-            </Card.Content>
-          </Card>
-        </ScrollView>
 
-        <Snackbar
-          visible={snackbarVisible}
-          onDismiss={() => setSnackbarVisible(false)}
-          duration={4000}
-          action={{
-            label: 'Close',
-            onPress: () => setSnackbarVisible(false),
-          }}
-        >
-          {snackbarMsg}
-        </Snackbar>
+                {/* Reset Attempts Button */}
+                {loginAttempts >= 3 && (
+                  <Button
+                    mode="text"
+                    onPress={resetAttempts}
+                    style={styles.resetButton}
+                  >
+                    Reset and Try Again
+                  </Button>
+                )}
+              </Card.Content>
+            </Card>
+          </ScrollView>
+
+          <Snackbar
+            visible={snackbarVisible}
+            onDismiss={() => setSnackbarVisible(false)}
+            duration={4000}
+            action={{
+              label: 'Close',
+              onPress: () => setSnackbarVisible(false),
+            }}
+          >
+            {snackbarMsg}
+          </Snackbar>
+        </KeyboardAvoidingView>
       </LinearGradient>
     </ImageBackground>
   );
