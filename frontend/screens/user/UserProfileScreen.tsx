@@ -25,6 +25,8 @@ import {
   SegmentedButtons,
   Surface,
   Button,
+  ActivityIndicator,
+  TextInput,
 } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -60,16 +62,16 @@ interface Rescue {
 
 interface UserProfile {
   name: string;
-  title: string;
-  joinDate: string;
-  location: string;
-  phone: string;
+  title?: string;
+  joinDate?: string;
+  location?: string;
+  phone?: string;
   email: string;
-  emergencyContact: { name: string; phone: string; relation: string };
-  certifications: string[];
-  availability: { days: string[]; timeSlots: string[] };
-  transportCapacity: string;
-  specializations: string[];
+  emergencyContact?: { name: string; phone: string; relation: string };
+  certifications?: string[];
+  availability?: { days: string[]; timeSlots: string[] };
+  transportCapacity?: string;
+  specializations?: string[];
 }
 
 interface RescueStats {
@@ -241,7 +243,24 @@ const SectionCard: React.FC<{
 );
 
 export default function UserProfileScreen() {
-  const { theme,  } = useThemeContext();
+  const themeContext = useThemeContext();
+  const { theme } = themeContext || { theme: {
+    colors: {
+      background: '#FAFAFA',
+      primary: '#ffa041ff',
+      card: '#FFFFFF',
+      text: '#212121',
+      subtext: '#757575',
+      accent: '#F5F5F5',
+      tabBackground1: '#FFFFFF',
+      tabBackground2: '#F8F9FA',
+      tabBackground3: '#E0E0E0',
+      tabActive: '#212121',
+      tabInactive: '#757575',
+      critical: '#FFCDD2'
+    },
+    spacing: { padding: 16, margin: 12, radius: 12 }
+  }};
   const dispatch = useAppDispatch();
   const [notificationRange, setNotificationRange] = useState("25");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -286,29 +305,57 @@ export default function UserProfileScreen() {
     );
   }, []);
 
-  const userProfile: UserProfile = {
-    name: "Sean Hudson",
-    title: "Animal Rescuer | Community Volunteer",
-    joinDate: "March 2023",
-    location: "New Delhi, India",
-    phone: "+91-9876543210",
-    email: "john.doe@email.com",
-    emergencyContact: {
-      name: "Sarah Doe",
-      phone: "+91-9876543211",
-      relation: "Sister",
-    },
-    certifications: [
-      "First Aid Certified",
-      "Animal Handling License",
-      "Wildlife Rescue Training",
-    ],
-    availability: {
-      days: ["Monday", "Tuesday", "Wednesday", "Saturday", "Sunday"],
-      timeSlots: ["Morning", "Evening"],
-    },
-    transportCapacity: "2-3 medium animals",
-    specializations: ["Dogs", "Cats", "Birds", "Emergency Care"],
+  // --- MIGRATION: Use real API data for user profile ---
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [editProfile, setEditProfile] = useState<UserProfile | null>(null);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState(false);
+
+  React.useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    setProfileLoading(true);
+    try {
+      // Replace with your real API call
+      const data = await import('../../api/usersApi').then(m => m.usersApi.getProfile());
+      console.log('Profile data loaded:', data);
+      setUserProfile(data);
+    } catch (e) {
+      console.error('Profile loading failed:', e);
+      setUserProfile(null);
+    }
+    setProfileLoading(false);
+  };
+
+  // Handler for edit profile (open modal with current data)
+  const handleEditProfile = () => {
+    setEditProfile(userProfile);
+    setEditModalVisible(true);
+    setEditError('');
+    setEditSuccess(false);
+  };
+
+  // Handler for saving profile changes
+  const handleSaveProfile = async () => {
+    setEditError('');
+    setEditSuccess(false);
+    try {
+      // Replace with your real API call
+      const res = await import('../../api/usersApi').then(m => m.usersApi.updateProfile(editProfile));
+      console.log('Profile update response:', res);
+      if (res && res.name) {
+        setEditSuccess(true);
+        setEditModalVisible(false);
+        fetchUserProfile();
+      } else {
+        setEditError(res.error || 'Update failed');
+      }
+    } catch (e) {
+      setEditError('Update failed');
+    }
   };
 
   const achievements: Achievement[] = [
@@ -411,17 +458,15 @@ export default function UserProfileScreen() {
   const handleShareProfile = async () => {
     try {
       const profileLink = `https://karunanidhan.org/certificate/${encodeURIComponent(userProfile.name.replace(/\s+/g, '-').toLowerCase())}`;
-      const message = `🐾 Animal Rescue Certificate 🐾\n\nThis certifies that ${userProfile.name} (${userProfile.title}) has made a significant impact in animal rescue.\n\nLocation: ${userProfile.location}\nKarma Points: 850\nAnimals Saved: ${rescueStats.totalRescues}\nSuccess Rate: ${rescueStats.successRate}%\nReferral Code: GOODBOY497\n\nView certificate: ${profileLink}`;
+      const message = `🐾 Animal Rescue Certificate 🐾\n\nThis certifies that ${userProfile.name} (${userProfile.title || 'Animal Rescuer'}) has made a significant impact in animal rescue.\n\nLocation: ${userProfile.location || 'Location not set'}\nKarma Points: 850\nAnimals Saved: ${rescueStats.totalRescues}\nSuccess Rate: ${rescueStats.successRate}%\nReferral Code: GOODBOY497\n\nView certificate: ${profileLink}`;
       await Share.share({ message, url: profileLink });
     } catch (error) {
       // Optionally handle error
     }
   };
 
-  // Handler for edit profile
-  const handleEditProfile = () => {
-    setEditModalVisible(true);
-  };
+
+  // Remove duplicate handleEditProfile (already defined above for modal logic)
 
   // Handler for settings
   const handleSettings = () => {
@@ -437,6 +482,9 @@ export default function UserProfileScreen() {
       console.error('Logout failed:', error);
     }
   };
+
+  if (profileLoading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" /></View>;
+  if (!userProfile) return <Text style={{ margin: 20 }}>Profile not found.</Text>;
 
   return (
     <ScrollView
@@ -468,11 +516,11 @@ export default function UserProfileScreen() {
                 />
               </Animated.View>
               <Text style={themedStyles.name}>{userProfile.name}</Text>
-              <Text style={themedStyles.title}>{userProfile.title}</Text>
+              <Text style={themedStyles.title}>{userProfile.title || 'Animal Rescuer'}</Text>
               <View style={themedStyles.profileMeta}>
                 <View style={themedStyles.metaItem}>
                   <Ionicons name="location-outline" size={14} color={theme.colors.card} />
-                  <Text style={themedStyles.metaText}>{userProfile.location}</Text>
+                  <Text style={themedStyles.metaText}>{userProfile.location || 'Location not set'}</Text>
                 </View>
                 <View style={themedStyles.metaItem}>
                   <Ionicons name="calendar-outline" size={14} color={theme.colors.card} />
@@ -497,6 +545,54 @@ export default function UserProfileScreen() {
           </View>
         </View>
       </Animated.View>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%' }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 16 }}>Edit Profile</Text>
+            <TextInput
+              label="Name"
+              value={editProfile?.name || ''}
+              onChangeText={v => setEditProfile(p => ({ ...p, name: v }))}
+              style={{ marginBottom: 12 }}
+            />
+            <TextInput
+              label="Title"
+              value={editProfile?.title || ''}
+              onChangeText={v => setEditProfile(p => ({ ...p, title: v }))}
+              style={{ marginBottom: 12 }}
+            />
+            <TextInput
+              label="Location"
+              value={editProfile?.location || ''}
+              onChangeText={v => setEditProfile(p => ({ ...p, location: v }))}
+              style={{ marginBottom: 12 }}
+            />
+            <TextInput
+              label="Phone"
+              value={editProfile?.phone || ''}
+              onChangeText={v => setEditProfile(p => ({ ...p, phone: v }))}
+              style={{ marginBottom: 12 }}
+            />
+            <TextInput
+              label="Email"
+              value={editProfile?.email || ''}
+              onChangeText={v => setEditProfile(p => ({ ...p, email: v }))}
+              style={{ marginBottom: 12 }}
+            />
+            {editError ? <Text style={{ color: 'red', marginBottom: 8 }}>{editError}</Text> : null}
+            {editSuccess ? <Text style={{ color: 'green', marginBottom: 8 }}>Profile updated!</Text> : null}
+            <Button mode="contained" onPress={handleSaveProfile} style={{ marginBottom: 8 }}>Save</Button>
+            <Button onPress={() => setEditModalVisible(false)}>Cancel</Button>
+          </View>
+        </View>
+      </Modal>
 
       {/* Stats */}
       <Animated.View style={{ opacity: fadeAnim }}>
@@ -643,7 +739,7 @@ export default function UserProfileScreen() {
           <View style={themedStyles.professionalItem}>
             <Text style={themedStyles.professionalLabel}>Specializations</Text>
             <View style={themedStyles.specializationChips}>
-              {userProfile.specializations.map((spec, index) => (
+              {(userProfile.specializations || []).map((spec, index) => (
                 <Chip
                   key={index}
                   style={themedStyles.specChip}
@@ -657,23 +753,23 @@ export default function UserProfileScreen() {
           <View style={themedStyles.professionalItem}>
             <Text style={themedStyles.professionalLabel}>Transport Capacity</Text>
             <Text style={themedStyles.professionalValue}>
-              {userProfile.transportCapacity}
+              {userProfile.transportCapacity || 'Not specified'}
             </Text>
           </View>
           <View style={themedStyles.professionalItem}>
             <Text style={themedStyles.professionalLabel}>Availability</Text>
             <View style={themedStyles.availabilityContainer}>
               <Text style={themedStyles.availabilityText}>
-                {userProfile.availability.days.join(", ")}
+                {(userProfile.availability?.days || []).join(", ")}
               </Text>
               <Text style={themedStyles.availabilityTime}>
-                {userProfile.availability.timeSlots.join(" & ")}
+                {(userProfile.availability?.timeSlots || []).join(" & ")}
               </Text>
             </View>
           </View>
           <View style={themedStyles.professionalItem}>
             <Text style={themedStyles.professionalLabel}>Certifications</Text>
-            {userProfile.certifications.map((cert, index) => (
+            {(userProfile.certifications || []).map((cert, index) => (
               <View key={index} style={themedStyles.certificationItem}>
                 <Ionicons name="ribbon" size={14} color="#8B4513" />
                 <Text style={themedStyles.certificationText}>{cert}</Text>
@@ -763,13 +859,13 @@ export default function UserProfileScreen() {
         <View style={themedStyles.emergencyContact}>
           <View style={themedStyles.contactInfo}>
             <Text style={themedStyles.contactName}>
-              {userProfile.emergencyContact.name}
+              {userProfile.emergencyContact?.name || 'Not set'}
             </Text>
             <Text style={themedStyles.contactRelation}>
-              {userProfile.emergencyContact.relation}
+              {userProfile.emergencyContact?.relation || 'Not set'}
             </Text>
             <Text style={themedStyles.contactPhone}>
-              {userProfile.emergencyContact.phone}
+              {userProfile.emergencyContact?.phone || 'Not set'}
             </Text>
           </View>
           <View style={themedStyles.contactActions}>

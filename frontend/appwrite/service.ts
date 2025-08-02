@@ -42,8 +42,11 @@ class AppwriteService {
       'X-Appwrite-Project': this.projectId,
     };
 
-    // Use JWT if available
-    if (this.jwt) {
+    // Use session ID if available (preferred for most operations after login)
+    if (this.sessionId) {
+      headers['X-Appwrite-Session'] = this.sessionId;
+    } else if (this.jwt) {
+      // Fallback to JWT if session ID is not available
       headers['X-Appwrite-JWT'] = this.jwt;
     }
 
@@ -172,17 +175,41 @@ class AppwriteService {
         password, 
         options: { persistent: true }, // NEW LINE
       });
+      console.log('Session created:', session);
 
       // Save session ID
       await this.saveSession(undefined, session.$id);
+      console.log('Session ID saved:', session.$id);
 
-      // Get JWT token for additional authentication
-      try {
-        const jwtResponse = await this.request('/account/jwt', 'POST');
-        await this.saveSession(jwtResponse.jwt);
-      } catch (jwtError) {
-        console.warn('Could not get JWT token:', jwtError);
-        // Continue without JWT - session should still work
+      // Small delay to ensure session is fully established
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Get JWT token for additional authentication with retry
+      let jwtToken = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`Attempting to get JWT token (attempt ${attempt})`);
+          const jwtResponse = await this.request('/account/jwt', 'POST');
+          console.log(`JWT response (attempt ${attempt}):`, jwtResponse);
+          
+          if (jwtResponse && jwtResponse.jwt) {
+            jwtToken = jwtResponse.jwt;
+            await this.saveSession(jwtResponse.jwt);
+            console.log(`JWT token obtained on attempt ${attempt}`);
+            break;
+          } else {
+            console.warn(`JWT response missing jwt field on attempt ${attempt}:`, jwtResponse);
+          }
+        } catch (jwtError) {
+          console.warn(`JWT attempt ${attempt} failed:`, jwtError);
+          if (attempt === 3) {
+            console.warn('Could not get JWT token after 3 attempts, continuing with session only');
+          }
+          // Wait a bit before retrying
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
       }
 
       // Return user data instead of session
@@ -251,20 +278,42 @@ class AppwriteService {
 
   async getValidJWT(): Promise<string | null> {
     if (this.jwt && !this.isJWTExpired()) {
+      console.log('Using existing valid JWT token');
       return this.jwt;
     }
-    // If session exists, get a new JWT
-    if (this.sessionId) {
-      try {
-        const jwtResponse = await this.request('/account/jwt', 'POST');
-        await this.saveSession(jwtResponse.jwt);
-        return jwtResponse.jwt;
-      } catch (e) {
-        await this.clearSession();
+    
+    // Try to get a new JWT using current session
+    try {
+      // First, check if we have a valid session
+      if (!this.sessionId) {
+        console.log('No session ID available for JWT generation');
         return null;
       }
+      
+      console.log('Attempting to create JWT token with session ID:', this.sessionId);
+      const jwtResponse = await this.request('/account/jwt', 'POST');
+      console.log('JWT creation response:', jwtResponse);
+      
+      if (jwtResponse && jwtResponse.jwt) {
+        await this.saveSession(jwtResponse.jwt);
+        console.log('JWT token created and saved successfully');
+        return jwtResponse.jwt;
+      } else {
+        console.log('JWT response did not contain jwt field:', jwtResponse);
+        return null;
+      }
+    } catch (e) {
+      console.error('Failed to get JWT token:', e);
+      // Try to verify session is still valid
+      try {
+        const user = await this.getCurrentUser();
+        console.log('Session is valid but JWT creation failed, user:', user);
+      } catch (sessionError) {
+        console.log('Session is invalid, clearing...', sessionError);
+        await this.clearSession();
+      }
+      return null;
     }
-    return null;
   }
 
   get hasJWT() {

@@ -1,4 +1,2 @@
 // Centralized API configuration
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://147.93.97.50';
-// export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.1.6:8000';
