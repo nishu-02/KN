@@ -113,12 +113,31 @@ class AuthService {
       const userData = await AppwriteService.login({ email, password });
       console.log('Appwrite login successful:', userData);
       
-      // Step 2: Get JWT token for API authentication
-      const jwtToken = await AppwriteService.getValidJWT();
-      if (!jwtToken) {
-        throw new Error('Failed to get authentication token');
+      // Step 2: Get JWT token for API authentication with retry logic
+      let jwtToken = null;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          jwtToken = await AppwriteService.getValidJWT();
+          if (jwtToken) {
+            console.log(`JWT token retrieved on attempt ${attempt}`);
+            break;
+          }
+        } catch (error) {
+          lastError = error;
+          console.warn(`JWT retrieval attempt ${attempt} failed:`, error);
+          if (attempt < 3) {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
       }
-      console.log('JWT token retrieved');
+      
+      if (!jwtToken) {
+        console.error('Failed to get JWT token after multiple attempts:', lastError);
+        throw new Error(`Failed to get authentication token: ${lastError?.message || 'Unknown error'}`);
+      }
       
       // Step 3: Query Django backend for account type using appwrite_user_id
       const accountTypeResponse = await fetch(`${API_BASE_URL}/users/auth/get_type`, {
@@ -166,6 +185,11 @@ class AuthService {
       
     } catch (error: any) {
       console.error('Login error:', error);
+      console.error('Login error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       return {
         success: false,
         error: error.message || 'Login failed'
