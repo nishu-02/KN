@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   Alert,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import {
   Surface,
@@ -18,6 +19,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '../../../theme';
 import { useNavigation } from '@react-navigation/native';
+import { useAppDispatch } from '../../../core/redux/store'; // Proper import
+import { logoutUser } from '../../../core/redux/slices/authSlice'; // Proper import
+import AsyncStorage from '@react-native-async-storage/async-storage'; // For clearing data; install if needed
 
 interface SideNavigationProps {
   activeTab: string;
@@ -25,15 +29,19 @@ interface SideNavigationProps {
   setSidebarOpen: (open: boolean) => void;
 }
 
+interface NavItem {
+  key: string;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  badge: string | null;
+}
+
 const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab, setSidebarOpen }) => {
   const { theme } = useThemeContext();
   const navigation = useNavigation<any>();
-  // Import Redux dispatch
-  // @ts-ignore
-  const { useAppDispatch } = require('../../../core/redux/store');
-  // @ts-ignore
-  const { logoutUser } = require('../../../core/redux/slices/authSlice');
   const dispatch = useAppDispatch();
+  const dimensions = useWindowDimensions();
+  const sidebarWidth = Math.min(280, dimensions.width * 0.8); // Responsive width
   const [animatedValue] = useState(new Animated.Value(0));
 
   useEffect(() => {
@@ -44,7 +52,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
     }).start();
   }, []);
 
-  const navigationItems = [
+  const navigationItems: NavItem[] = [
     { key: 'profile', title: 'Profile', icon: 'person', badge: null },
     { key: 'reports', title: 'Assigned Reports', icon: 'document-text', badge: '5' },
     { key: 'stats', title: 'Dashboard Stats', icon: 'stats-chart', badge: null },
@@ -65,30 +73,71 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            // Dispatch logoutUser Redux action
-            dispatch(logoutUser());
-            // Navigation will be handled automatically by App.tsx when auth state changes
+            try {
+              await AsyncStorage.clear(); // Clear local storage/cache
+              dispatch(logoutUser());
+              navigation.navigate('Auth'); // Navigate to auth screen
+            } catch (error) {
+              console.error('Logout failed:', error);
+            }
           },
         },
       ]
     );
   };
 
+  const handleNavPress = (key: string) => {
+    setActiveTab(key);
+    navigation.navigate(key.charAt(0).toUpperCase() + key.slice(1)); // e.g., 'profile' -> 'Profile'
+    setSidebarOpen(false);
+  };
+
+  const renderNavItem = useMemo(() => (item: NavItem, index: number) => (
+    <List.Item
+      key={item.key}
+      title={item.title}
+      left={(props) => (
+        <Ionicons 
+          name={item.icon} 
+          size={20} 
+          color={activeTab === item.key ? theme.colors.primary : theme.colors.onSurface} 
+        />
+      )}
+      right={() => item.badge ? (
+        <Badge style={styles.navBadge} accessibilityLabel={`Badge: ${item.badge}`}>{item.badge}</Badge>
+      ) : null}
+      onPress={() => handleNavPress(item.key)}
+      style={[
+        styles.navItem,
+        activeTab === item.key && styles.activeNavItem
+      ]}
+      titleStyle={[
+        styles.navItemText,
+        activeTab === item.key && styles.activeNavItemText
+      ]}
+      accessibilityLabel={item.title}
+      accessibilityRole="menuitem"
+    />
+  ), [activeTab, theme, handleNavPress]);
+
   return (
     <Animated.View
       style={[
         styles.sidebar,
         {
+          width: sidebarWidth,
           transform: [
             {
               translateX: animatedValue.interpolate({
                 inputRange: [0, 1],
-                outputRange: [-280, 0],
+                outputRange: [-sidebarWidth, 0],
               }),
             },
           ],
         },
       ]}
+      accessibilityLabel="Sidebar navigation"
+      accessibilityRole="navigation"
     >
       <Surface style={styles.sidebarContent}>
         <View style={styles.profileSection}>
@@ -99,6 +148,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
                 uri: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=100&h=100&fit=crop&crop=center',
               }}
               style={styles.profileAvatar}
+              accessibilityLabel="Profile avatar"
             />
             <View style={styles.statusIndicator} />
           </View>
@@ -116,34 +166,7 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
         <Divider style={styles.divider} />
         
         <List.Section style={styles.navigationSection}>
-          {navigationItems.map((item, index) => (
-            <List.Item
-              key={item.key}
-              title={item.title}
-              left={(props) => (
-                <Ionicons 
-                  name={item.icon as any} 
-                  size={20} 
-                  color={activeTab === item.key ? theme.colors.primary : theme.colors.onSurface} 
-                />
-              )}
-              right={() => item.badge ? (
-                <Badge style={styles.navBadge}>{item.badge}</Badge>
-              ) : null}
-              onPress={() => {
-                setActiveTab(item.key);
-                setSidebarOpen(false);
-              }}
-              style={[
-                styles.navItem,
-                activeTab === item.key && styles.activeNavItem
-              ]}
-              titleStyle={[
-                styles.navItemText,
-                activeTab === item.key && styles.activeNavItemText
-              ]}
-            />
-          ))}
+          {navigationItems.map((item, index) => renderNavItem(item, index))}
         </List.Section>
         
         <View style={styles.sidebarFooter}>
@@ -158,6 +181,8 @@ const SideNavigation: React.FC<SideNavigationProps> = ({ activeTab, setActiveTab
             onPress={handleLogout}
             style={styles.logoutButton}
             labelStyle={styles.logoutButtonText}
+            accessibilityLabel="Logout button"
+            accessibilityRole="button"
           >
             Logout
           </Button>
@@ -173,7 +198,6 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: 280,
     zIndex: 1000,
     elevation: 8,
     shadowColor: '#000',
@@ -296,4 +320,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SideNavigation; 
+export default SideNavigation;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import {
   View,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Text as RNText,
 } from 'react-native';
 import {
   Text,
@@ -22,35 +23,88 @@ import {
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // For state persistence; install if needed
 import { useThemeContext } from '../../theme';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useAppDispatch } from '../../core/redux/store';
+import { logoutUser } from '../../core/redux/slices/authSlice';
 
-// Import components
-import NGOProfile from './components/NGOProfile';
-import AssignedReports from './components/AssignedReports';
-import DashboardStats from './components/DashboardStats';
-import ReportTimeline from './components/ReportTimeline';
-import VolunteerRequests from './components/VolunteerRequests';
-import SideNavigation from './components/SideNavigation';
+// Lazy-loaded components
+const NGOProfile = React.lazy(() => import('./components/NGOProfile'));
+const AssignedReports = React.lazy(() => import('./components/AssignedReports'));
+const DashboardStats = React.lazy(() => import('./components/DashboardStats'));
+const ReportTimeline = React.lazy(() => import('./components/ReportTimeline'));
+const VolunteerRequests = React.lazy(() => import('./components/VolunteerRequests'));
+const SideNavigation = React.lazy(() => import('./components/SideNavigation'));
 
 const screenWidth = Dimensions.get('window').width;
 
 const NGOAdminDashboard = () => {
   const { theme } = useThemeContext();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const dispatch = useAppDispatch();
+  const dimensions = Dimensions.get('window');
   const [activeTab, setActiveTab] = useState('profile');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications] = useState(2);
-  const [animatedValue] = useState(0);
-  const [fadeAnim] = useState(1);
+  const [notifications, setNotifications] = useState(2); // Dynamic now
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tabFadeAnim] = useState(new Animated.Value(0));
+  const [sidebarAnim] = useState(new Animated.Value(0));
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadPersistedTab = async () => {
+        try {
+          const savedTab = await AsyncStorage.getItem('activeTab');
+          if (savedTab) setActiveTab(savedTab);
+        } catch (err) {
+          console.error('Failed to load persisted tab:', err);
+        }
+      };
+      loadPersistedTab();
+    }, [])
+  );
 
   useEffect(() => {
-    // Animation handled by components
+    // Fetch dynamic notifications (adjust to your API)
+    const fetchNotifications = async () => {
+      try {
+        // const response = await notificationsApi.getCount(); // Example
+        // setNotifications(response.count);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to load notifications.');
+        setLoading(false);
+      }
+    };
+    fetchNotifications();
   }, []);
 
-  // Get header title and subtitle based on active tab
-  const getHeaderInfo = () => {
+  useEffect(() => {
+    // Animate tab change
+    tabFadeAnim.setValue(0);
+    Animated.timing(tabFadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Persist active tab
+    AsyncStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Animate sidebar
+    Animated.timing(sidebarAnim, {
+      toValue: sidebarOpen ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [sidebarOpen]);
+
+  const getHeaderInfo = useCallback(() => {
     switch (activeTab) {
       case 'profile':
         return {
@@ -89,26 +143,42 @@ const NGOAdminDashboard = () => {
           stats: 'Active Reports: 5'
         };
     }
-  };
+  }, [activeTab]);
+
+  const renderContent = useCallback(() => {
+    const components = {
+      profile: NGOProfile,
+      reports: AssignedReports,
+      stats: DashboardStats,
+      timeline: ReportTimeline,
+      volunteers: () => <VolunteerRequests searchQuery={searchQuery} />,
+    };
+    const Component = components[activeTab] || NGOProfile;
+    return (
+      <Suspense fallback={<ProgressBar indeterminate />}>
+        <Component />
+      </Suspense>
+    );
+  }, [activeTab, searchQuery]);
 
   const headerInfo = getHeaderInfo();
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'profile':
-        return <NGOProfile />;
-      case 'reports':
-        return <AssignedReports />;
-      case 'stats':
-        return <DashboardStats />;
-      case 'timeline':
-        return <ReportTimeline />;
-      case 'volunteers':
-        return <VolunteerRequests />;
-      default:
-        return <NGOProfile />;
-    }
-  };
+  if (loading) {
+    return (
+      <View style={styles(theme).errorContainer}>
+        <ProgressBar indeterminate />
+        <Text>Loading dashboard...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles(theme).errorContainer}>
+        <Text style={{ color: theme.colors.error }}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles(theme).container}>
@@ -120,6 +190,8 @@ const NGOAdminDashboard = () => {
             <TouchableOpacity
               onPress={() => setSidebarOpen(true)}
               style={styles(theme).iconSpacing}
+              accessibilityLabel="Open sidebar"
+              accessibilityRole="button"
             >
               <Ionicons name="menu" size={28} color={theme.colors.text} />
             </TouchableOpacity>
@@ -135,7 +207,12 @@ const NGOAdminDashboard = () => {
           </View>
           {/* Notifications Icon - Right */}
           <View style={styles(theme).headerNotifContainer}>
-            <TouchableOpacity style={styles(theme).iconSpacing}>
+            <TouchableOpacity 
+              style={styles(theme).iconSpacing}
+              onPress={() => navigation.navigate('Notifications')} // Navigate to Notifications screen
+              accessibilityLabel={`Notifications, ${notifications} unread`}
+              accessibilityRole="button"
+            >
               <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
               {notifications > 0 && (
                 <Badge style={styles(theme).notifBadge}>{notifications}</Badge>
@@ -145,22 +222,31 @@ const NGOAdminDashboard = () => {
         </View>
       </Surface>
       <View style={styles(theme).main}>
-        {sidebarOpen && <SideNavigation activeTab={activeTab} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
-        <View
+        <Animated.View
+          style={{
+            transform: [
+              {
+                translateX: sidebarAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-dimensions.width * 0.8, 0],
+                }),
+              },
+            ],
+            width: dimensions.width * 0.8, // Responsive width
+          }}
+        >
+          {sidebarOpen && <SideNavigation activeTab={activeTab} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+        </Animated.View>
+        <Animated.View
           style={[
             styles(theme).contentContainer,
             {
-              transform: [
-                {
-                  translateX: sidebarOpen ? 280 : 0,
-                },
-              ],
-              opacity: fadeAnim,
+              opacity: tabFadeAnim,
             },
           ]}
         >
           {renderContent()}
-        </View>
+        </Animated.View>
       </View>
     </View>
   );
@@ -247,6 +333,11 @@ const styles = (theme: any) => StyleSheet.create({
   contentContainer: {
     flex: 1,
     width: '100%',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

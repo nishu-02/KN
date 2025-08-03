@@ -325,6 +325,28 @@ class AuthService {
   }
 
   /**
+   * Refresh the JWT token
+   */
+  async refreshToken(): Promise<string | null> {
+    try {
+      console.log('Attempting to refresh JWT token');
+      const newJwt = await AppwriteService.getValidJWT();
+      if (newJwt) {
+        this.jwt = newJwt;
+        await AsyncStorage.setItem('appwrite_jwt', newJwt);
+        console.log('JWT token successfully refreshed');
+        return newJwt;
+      } else {
+        console.error('Failed to refresh JWT token');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error during token refresh:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get current JWT token
    */
   get getJWT(): string | null {

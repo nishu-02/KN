@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Animated,
+  RefreshControl,
+  Text as RNText,
 } from 'react-native';
 import {
   Surface,
@@ -15,11 +17,80 @@ import {
   Button,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo'; // For offline detection; install via npm/yarn if needed
 import { useThemeContext } from '../../../theme';
+import { ngoApi } from '../../../api/ngoApi';
+import AuthService from '../../../api/authService';
+
+interface StatsData {
+  totalReports: number;
+  activeReports: number;
+  completedReports: number;
+  successRate: number;
+  volunteers: number;
+  avgResponseTime: string;
+  monthlyGrowth: number;
+  totalDonations: number;
+  thisMonth: number;
+  reportsByType: {
+    emergency: number;
+    medical: number;
+    rescue: number;
+    rehabilitation: number;
+    adoption: number;
+  };
+  reportsByPriority: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  volunteerStats: {
+    active: number;
+    inactive: number;
+    newThisMonth: number;
+    avgExperience: string;
+  };
+  financialStats: {
+    totalDonations: number;
+    thisMonth: number;
+    lastMonth: number;
+    avgDonation: number;
+    recurringDonors: number;
+  };
+  performanceMetrics: {
+    avgResponseTime: string;
+    avgResolutionTime: string;
+    customerSatisfaction: number;
+    repeatReporters: number;
+  };
+  locationStats: {
+    centralPark: number;
+    brooklyn: number;
+    manhattan: number;
+    queens: number;
+    bronx: number;
+  };
+}
 
 const DashboardStats: React.FC = () => {
   const { theme } = useThemeContext();
   const [animatedValue] = useState(new Animated.Value(0));
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+
+    fetchStats();
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -29,59 +100,41 @@ const DashboardStats: React.FC = () => {
     }).start();
   }, []);
 
-  const statsData = {
-    totalReports: 147,
-    activeReports: 5,
-    completedReports: 142,
-    successRate: 94,
-    volunteers: 23,
-    avgResponseTime: '2.3 hours',
-    monthlyGrowth: 12,
-    totalDonations: 15420,
-    thisMonth: 3200,
-    // Enhanced detailed stats
-    reportsByType: {
-      emergency: 45,
-      medical: 38,
-      rescue: 32,
-      rehabilitation: 20,
-      adoption: 12,
-    },
-    reportsByPriority: {
-      critical: 8,
-      high: 15,
-      medium: 67,
-      low: 57,
-    },
-    volunteerStats: {
-      active: 23,
-      inactive: 7,
-      newThisMonth: 4,
-      avgExperience: '2.8 years',
-    },
-    financialStats: {
-      totalDonations: 15420,
-      thisMonth: 3200,
-      lastMonth: 2800,
-      avgDonation: 125,
-      recurringDonors: 18,
-    },
-    performanceMetrics: {
-      avgResponseTime: '2.3 hours',
-      avgResolutionTime: '4.7 days',
-      customerSatisfaction: 4.8,
-      repeatReporters: 34,
-    },
-    locationStats: {
-      centralPark: 28,
-      brooklyn: 45,
-      manhattan: 32,
-      queens: 25,
-      bronx: 17,
-    },
+  const fetchStats = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const ngoId = 'your-ngo-id'; // Replace with actual NGO ID from auth or props
+      const response = await ngoApi.getDashboardStats(ngoId);
+      setStats(response); // Assuming response matches StatsData interface
+    } catch (err: any) {
+      console.error('Failed to fetch dashboard stats:', err);
+      if (err.message?.includes('401')) {
+        const newJwt = await AuthService.refreshToken();
+        if (newJwt) {
+          try {
+            const ngoId = 'your-ngo-id';
+            const retryResponse = await ngoApi.getDashboardStats(ngoId);
+            setStats(retryResponse);
+            return;
+          } catch (retryErr) {
+            console.error('Retry failed after token refresh:', retryErr);
+          }
+        }
+      }
+      setError('Failed to load dashboard stats. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const renderMetricCard = (title: string, value: string | number, subtitle: string, icon: string, color: string, delay: number = 0) => (
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchStats();
+  };
+
+  const renderMetricCard = useMemo(() => (title: string, value: string | number, subtitle: string, icon: keyof typeof Ionicons.glyphMap, color: string, delay: number = 0) => (
     <Animated.View
       style={[
         styles.metricCard,
@@ -102,7 +155,7 @@ const DashboardStats: React.FC = () => {
         <Card.Content style={styles.cardContent}>
           <View style={styles.metricHeader}>
             <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
-              <Ionicons name={icon as any} size={24} color={color} />
+              <Ionicons name={icon} size={24} color={color} />
             </View>
             <View style={styles.metricInfo}>
               <Text style={styles.metricValue}>{value}</Text>
@@ -113,9 +166,9 @@ const DashboardStats: React.FC = () => {
         </Card.Content>
       </Card>
     </Animated.View>
-  );
+  ), [animatedValue]);
 
-  const renderDetailedCard = (title: string, data: any, type: string, delay: number = 0) => (
+  const renderDetailedCard = useMemo(() => (title: string, data: any, type: string, delay: number = 0) => (
     <Animated.View
       style={[
         styles.detailedCard,
@@ -136,7 +189,7 @@ const DashboardStats: React.FC = () => {
         <Card.Content style={styles.cardContent}>
           <View style={styles.cardHeader}>
             <Text style={styles.detailedTitle}>{title}</Text>
-            <Button mode="text" compact>View Details</Button>
+            <Button mode="text" compact accessibilityLabel={`View details for ${title}`} accessibilityRole="button">View Details</Button>
           </View>
           
           {type === 'reports' && (
@@ -148,7 +201,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.emergency}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.emergency / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.emergency / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#EF4444' }]} />
               </View>
@@ -160,7 +213,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.medical}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.medical / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.medical / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#3B82F6' }]} />
               </View>
@@ -172,7 +225,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.rescue}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.rescue / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.rescue / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#F59E0B' }]} />
               </View>
@@ -184,7 +237,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.rehabilitation}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.rehabilitation / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.rehabilitation / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#10B981' }]} />
               </View>
@@ -196,7 +249,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.adoption}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.adoption / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.adoption / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#8B5CF6' }]} />
               </View>
@@ -212,7 +265,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.critical}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.critical / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.critical / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#EF4444' }]} />
               </View>
@@ -224,7 +277,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.high}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.high / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.high / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#F59E0B' }]} />
               </View>
@@ -236,7 +289,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.medium}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.medium / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.medium / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#3B82F6' }]} />
               </View>
@@ -248,7 +301,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.low}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.low / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.low / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#10B981' }]} />
               </View>
@@ -420,7 +473,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.centralPark}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.centralPark / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.centralPark / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#10B981' }]} />
               </View>
@@ -432,7 +485,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.brooklyn}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.brooklyn / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.brooklyn / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#3B82F6' }]} />
               </View>
@@ -444,7 +497,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.manhattan}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.manhattan / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.manhattan / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#F59E0B' }]} />
               </View>
@@ -456,7 +509,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.queens}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.queens / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.queens / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#8B5CF6' }]} />
               </View>
@@ -468,7 +521,7 @@ const DashboardStats: React.FC = () => {
                 </View>
                 <View style={styles.statValues}>
                   <Text style={styles.statValue}>{data.bronx}</Text>
-                  <Text style={styles.statPercentage}>{Math.round((data.bronx / statsData.totalReports) * 100)}%</Text>
+                  <Text style={styles.statPercentage}>{Math.round((data.bronx / (stats?.totalReports || 1)) * 100)}%</Text>
                 </View>
                 <View style={[styles.statIndicator, { backgroundColor: '#64748B' }]} />
               </View>
@@ -477,10 +530,41 @@ const DashboardStats: React.FC = () => {
         </Card.Content>
       </Card>
     </Animated.View>
-  );
+  ), [animatedValue, stats?.totalReports]);
+
+  if (isOffline) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>No internet connection. Please check your network.</Text>
+      </View>
+    );
+  }
+
+  if (loading || !stats) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Loading dashboard stats...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>{error}</Text>
+        <Button onPress={fetchStats} accessibilityLabel="Retry loading stats" accessibilityRole="button">
+          Retry
+        </Button>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       {/* Header */}
       <Animated.View
         style={[
@@ -505,7 +589,7 @@ const DashboardStats: React.FC = () => {
       {/* Key Metrics Grid */}
       <View style={styles.metricsGrid}>
         {renderMetricCard(
-          statsData.totalReports.toString(),
+          stats.totalReports.toString(),
           'Total Reports',
           'All time',
           'document-text',
@@ -513,7 +597,7 @@ const DashboardStats: React.FC = () => {
           0
         )}
         {renderMetricCard(
-          statsData.activeReports.toString(),
+          stats.activeReports.toString(),
           'Active Reports',
           'Currently assigned',
           'time',
@@ -521,7 +605,7 @@ const DashboardStats: React.FC = () => {
           100
         )}
         {renderMetricCard(
-          statsData.successRate + '%',
+          stats.successRate + '%',
           'Success Rate',
           'Completed successfully',
           'checkmark-circle',
@@ -529,7 +613,7 @@ const DashboardStats: React.FC = () => {
           200
         )}
         {renderMetricCard(
-          statsData.volunteers.toString(),
+          stats.volunteers.toString(),
           'Volunteers',
           'Active members',
           'people',
@@ -543,12 +627,12 @@ const DashboardStats: React.FC = () => {
         <Text style={styles.sectionTitle}>Detailed Analytics</Text>
         
         <View style={styles.detailedGrid}>
-          {renderDetailedCard('Reports by Type', statsData.reportsByType, 'reports', 0)}
-          {renderDetailedCard('Priority Distribution', statsData.reportsByPriority, 'priority', 100)}
-          {renderDetailedCard('Volunteer Overview', statsData.volunteerStats, 'volunteers', 200)}
-          {renderDetailedCard('Financial Performance', statsData.financialStats, 'financial', 300)}
-          {renderDetailedCard('Performance Metrics', statsData.performanceMetrics, 'performance', 400)}
-          {renderDetailedCard('Location Breakdown', statsData.locationStats, 'location', 500)}
+          {renderDetailedCard('Reports by Type', stats.reportsByType, 'reports', 0)}
+          {renderDetailedCard('Priority Distribution', stats.reportsByPriority, 'priority', 100)}
+          {renderDetailedCard('Volunteer Overview', stats.volunteerStats, 'volunteers', 200)}
+          {renderDetailedCard('Financial Performance', stats.financialStats, 'financial', 300)}
+          {renderDetailedCard('Performance Metrics', stats.performanceMetrics, 'performance', 400)}
+          {renderDetailedCard('Location Breakdown', stats.locationStats, 'location', 500)}
         </View>
       </View>
 
@@ -574,10 +658,10 @@ const DashboardStats: React.FC = () => {
           <View style={styles.progressItem}>
             <View style={styles.progressHeader}>
               <Text style={styles.progressLabel}>Completed Reports</Text>
-              <Text style={styles.progressValue}>{statsData.completedReports}/{statsData.totalReports}</Text>
+              <Text style={styles.progressValue}>{stats.completedReports}/{stats.totalReports}</Text>
             </View>
             <ProgressBar
-              progress={statsData.completedReports / statsData.totalReports}
+              progress={stats.completedReports / stats.totalReports}
               color="#10B981"
               style={styles.progressBar}
             />
@@ -588,10 +672,10 @@ const DashboardStats: React.FC = () => {
           <View style={styles.progressItem}>
             <View style={styles.progressHeader}>
               <Text style={styles.progressLabel}>Active Reports</Text>
-              <Text style={styles.progressValue}>{statsData.activeReports}</Text>
+              <Text style={styles.progressValue}>{stats.activeReports}</Text>
             </View>
             <ProgressBar
-              progress={statsData.activeReports / statsData.totalReports}
+              progress={stats.activeReports / stats.totalReports}
               color="#F59E0B"
               style={styles.progressBar}
             />
@@ -781,6 +865,12 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     backgroundColor: '#E2E8F0',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
 });
 
-export default DashboardStats; 
+export default DashboardStats;

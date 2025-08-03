@@ -1,4 +1,3 @@
-
 import AuthService from './authService';
 import { API_BASE_URL } from './config';
 
@@ -7,7 +6,7 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
   // Get JWT from AuthService
-  const jwt = AuthService.getJWT;
+  let jwt = AuthService.getJWT;
   if (!jwt) {
     console.error('No JWT token available for API call');
     throw new Error('No authentication token found. Please login again.');
@@ -29,10 +28,40 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Token expired or invalid, clear auth
-      console.error('Authentication failed (401), clearing auth');
-      await AuthService.logout();
-      throw new Error('Authentication expired. Please login again.');
+      console.log('Authentication failed (401), attempting token refresh');
+      // Attempt to refresh the token
+      jwt = await AuthService.refreshToken();
+      if (!jwt) {
+        console.error('Token refresh failed, logging out');
+        await AuthService.logout();
+        throw new Error('Authentication expired. Please login again.');
+      }
+      console.log('Token refreshed, retrying request with new JWT');
+      // Retry the request with the new token
+      const retryResponse = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+          ...options.headers,
+        },
+      });
+      
+      console.log(`Retry API response status: ${retryResponse.status} for ${endpoint}`);
+      
+      if (!retryResponse.ok) {
+        if (retryResponse.status === 401) {
+          console.error('Authentication failed again after refresh (401), clearing auth');
+          await AuthService.logout();
+          throw new Error('Authentication expired after refresh. Please login again.');
+        }
+        const retryErrorText = await retryResponse.text();
+        console.error(`Retry API request failed: ${retryResponse.status} ${retryResponse.statusText}`);
+        console.error(`Retry error response: ${retryErrorText}`);
+        throw new Error(`API request failed on retry: ${retryResponse.status} ${retryResponse.statusText}`);
+      }
+      
+      return retryResponse.json();
     }
     
     const errorText = await response.text();
@@ -43,8 +72,6 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
 
   return response.json();
 }
-
-
 
 // Notification API functions
 export const notificationApi = {
@@ -92,9 +119,6 @@ export const notificationApi = {
   },
 };
 
-
-
-
 // Reports API functions
 export const reportsApi = {
   // Save push token
@@ -116,7 +140,7 @@ export const reportsApi = {
   // Create injury report
   createInjuryReport: async (data: FormData) => {
     const url = `${API_BASE_URL}/reports/`;
-    const jwt = AuthService.getJWT;
+    let jwt = AuthService.getJWT;
     if (!jwt) {
       console.error('No JWT token available for injury report creation');
       throw new Error('No authentication token found. Please login again.');
@@ -136,9 +160,37 @@ export const reportsApi = {
 
     if (!response.ok) {
       if (response.status === 401) {
-        console.error('Authentication failed for injury report creation');
-        await AuthService.logout();
-        throw new Error('Authentication expired. Please login again.');
+        console.log('Authentication failed for injury report creation, attempting token refresh');
+        jwt = await AuthService.refreshToken();
+        if (!jwt) {
+          console.error('Token refresh failed for injury report, logging out');
+          await AuthService.logout();
+          throw new Error('Authentication expired. Please login again.');
+        }
+        console.log('Token refreshed, retrying injury report creation with new JWT');
+        const retryResponse = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: data,
+        });
+        
+        console.log(`Retry injury report creation response status: ${retryResponse.status}`);
+        
+        if (!retryResponse.ok) {
+          if (retryResponse.status === 401) {
+            console.error('Authentication failed again after refresh for injury report');
+            await AuthService.logout();
+            throw new Error('Authentication expired after refresh. Please login again.');
+          }
+          const retryErrorText = await retryResponse.text();
+          console.error(`Retry injury report creation failed: ${retryResponse.status} ${retryResponse.statusText}`);
+          console.error(`Retry error response: ${retryErrorText}`);
+          throw new Error(`API request failed on retry: ${retryResponse.status} ${retryResponse.statusText}`);
+        }
+        
+        return retryResponse.json();
       }
       
       const errorText = await response.text();
@@ -150,15 +202,6 @@ export const reportsApi = {
     return response.json();
   },
 };
-
-
-
-// User API functions - Updated to use the new userApi.ts file
-// These functions are now available in the separate userApi.ts file
-// import { userApi } from './userApi';
-
-
-
 
 // NGO API functions
 export const ngoApi = {
@@ -191,4 +234,4 @@ export default {
   notificationApi,
   reportsApi,
   ngoApi,
-}; 
+};

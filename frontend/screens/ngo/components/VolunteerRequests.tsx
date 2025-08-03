@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Animated,
   TouchableOpacity,
+  RefreshControl,
+  Text as RNText,
 } from 'react-native';
 import {
   Surface,
@@ -17,13 +19,47 @@ import {
   Divider,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo'; // For offline detection; install via npm/yarn if needed
+import debounce from 'lodash.debounce'; // For search debounce; install via npm/yarn if needed
+import Toast from 'react-native-toast-message'; // For toasts; install via npm/yarn if needed
 import { useThemeContext } from '../../../theme';
+// import { volunteersApi } from '../../../api/volunteersApi'; // Uncomment and create if needed
+import AuthService from '../../../api/authService';
+
+interface Volunteer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: 'pending' | 'approved' | 'rejected';
+  specialization: string;
+  experience: string;
+  location: string;
+  availability: string;
+  submitted: string;
+  avatar: string;
+}
 
 const VolunteerRequests: React.FC = () => {
   const { theme } = useThemeContext();
   const [animatedValue] = useState(new Animated.Value(0));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [volunteerData, setVolunteerData] = useState<Volunteer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+
+    fetchVolunteers();
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -33,62 +69,87 @@ const VolunteerRequests: React.FC = () => {
     }).start();
   }, []);
 
-  const volunteerData = [
-    {
-      id: '1',
-      name: 'Sarah Johnson',
-      email: 'sarah.j@email.com',
-      phone: '+1-555-0123',
-      status: 'pending',
-      specialization: 'Large Animal Rescue',
-      experience: '3 years',
-      location: 'Brooklyn, NY',
-      availability: 'Weekends',
-      submitted: '2 days ago',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=center',
-    },
-    {
-      id: '2',
-      name: 'Mike Wilson',
-      email: 'mike.w@email.com',
-      phone: '+1-555-0124',
-      status: 'approved',
-      specialization: 'Emergency Response',
-      experience: '5 years',
-      location: 'Manhattan, NY',
-      availability: 'Full-time',
-      submitted: '1 week ago',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=center',
-    },
-    {
-      id: '3',
-      name: 'Emily Davis',
-      email: 'emily.d@email.com',
-      phone: '+1-555-0125',
-      status: 'rejected',
-      specialization: 'Small Animal Care',
-      experience: '1 year',
-      location: 'Queens, NY',
-      availability: 'Evenings',
-      submitted: '3 days ago',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=center',
-    },
-    {
-      id: '4',
-      name: 'David Brown',
-      email: 'david.b@email.com',
-      phone: '+1-555-0126',
-      status: 'pending',
-      specialization: 'Wildlife Rescue',
-      experience: '7 years',
-      location: 'Bronx, NY',
-      availability: 'Flexible',
-      submitted: '1 day ago',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=center',
-    },
-  ];
+  const fetchVolunteers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await volunteersApi.getRequests(); // Assume returns Volunteer[]
+      setVolunteerData(response);
+    } catch (err: any) {
+      console.error('Failed to fetch volunteers:', err);
+      let handled = false;
+      if (err.message?.includes('401') || err.message?.includes('403')) {
+        const newJwt = await AuthService.refreshToken();
+        if (newJwt) {
+          try {
+            const retryResponse = await volunteersApi.getRequests();
+            setVolunteerData(retryResponse);
+            handled = true;
+          } catch (retryErr) {
+            console.error('Retry failed after token refresh:', retryErr);
+          }
+        }
+      }
+      if (!handled) {
+        setError('Failed to load volunteer requests. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
-  const getStatusColor = (status: string) => {
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchVolunteers();
+  };
+
+  const handleApprove = async (id: string) => {
+    const volunteerIndex = volunteerData.findIndex(v => v.id === id);
+    if (volunteerIndex === -1) return;
+
+    // Optimistic update
+    const updatedData = [...volunteerData];
+    updatedData[volunteerIndex] = { ...updatedData[volunteerIndex], status: 'approved' };
+    setVolunteerData(updatedData);
+
+    try {
+      await volunteersApi.updateStatus(id, 'approved');
+      Toast.show({ type: 'success', text1: 'Volunteer approved successfully' });
+    } catch (err) {
+      // Rollback
+      updatedData[volunteerIndex] = { ...updatedData[volunteerIndex], status: 'pending' };
+      setVolunteerData(updatedData);
+      Toast.show({ type: 'error', text1: 'Failed to approve volunteer' });
+      console.error('Approve failed:', err);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    const volunteerIndex = volunteerData.findIndex(v => v.id === id);
+    if (volunteerIndex === -1) return;
+
+    // Optimistic update
+    const updatedData = [...volunteerData];
+    updatedData[volunteerIndex] = { ...updatedData[volunteerIndex], status: 'rejected' };
+    setVolunteerData(updatedData);
+
+    try {
+      await volunteersApi.updateStatus(id, 'rejected');
+      Toast.show({ type: 'success', text1: 'Volunteer rejected successfully' });
+    } catch (err) {
+      // Rollback
+      updatedData[volunteerIndex] = { ...updatedData[volunteerIndex], status: 'pending' };
+      setVolunteerData(updatedData);
+      Toast.show({ type: 'error', text1: 'Failed to reject volunteer' });
+      console.error('Reject failed:', err);
+    }
+  };
+
+  // Debounced search handler
+  const debouncedSetSearch = useMemo(() => debounce((query: string) => setSearchQuery(query), 300), []);
+
+  const getStatusColor = useMemo(() => (status: Volunteer['status']) => {
     switch (status) {
       case 'pending':
         return '#F59E0B';
@@ -99,9 +160,9 @@ const VolunteerRequests: React.FC = () => {
       default:
         return '#64748B';
     }
-  };
+  }, []);
 
-  const getStatusText = (status: string) => {
+  const getStatusText = useMemo(() => (status: Volunteer['status']) => {
     switch (status) {
       case 'pending':
         return 'PENDING';
@@ -112,19 +173,16 @@ const VolunteerRequests: React.FC = () => {
       default:
         return 'UNKNOWN';
     }
-  };
+  }, []);
 
-  const handleApprove = (id: string) => {
-    // Handle approval logic
-    console.log('Approved volunteer:', id);
-  };
+  const filteredVolunteers = useMemo(() => volunteerData.filter(volunteer => {
+    const matchesSearch = volunteer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         volunteer.specialization.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = selectedFilter === 'all' || volunteer.status === selectedFilter;
+    return matchesSearch && matchesFilter;
+  }), [volunteerData, searchQuery, selectedFilter]);
 
-  const handleReject = (id: string) => {
-    // Handle rejection logic
-    console.log('Rejected volunteer:', id);
-  };
-
-  const renderVolunteerCard = (volunteer: any, index: number) => (
+  const renderVolunteerCard = useMemo(() => (volunteer: Volunteer, index: number) => (
     <Animated.View
       key={volunteer.id}
       style={[
@@ -150,6 +208,7 @@ const VolunteerRequests: React.FC = () => {
                 size={50}
                 source={{ uri: volunteer.avatar }}
                 style={styles.avatar}
+                accessibilityLabel={`${volunteer.name}'s avatar`}
               />
               <View style={styles.volunteerDetails}>
                 <Text style={styles.volunteerName}>{volunteer.name}</Text>
@@ -195,6 +254,8 @@ const VolunteerRequests: React.FC = () => {
                 mode="contained"
                 style={[styles.approveButton, { backgroundColor: '#10B981' }]}
                 onPress={() => handleApprove(volunteer.id)}
+                accessibilityLabel={`Approve ${volunteer.name}`}
+                accessibilityRole="button"
               >
                 Approve
               </Button>
@@ -203,6 +264,8 @@ const VolunteerRequests: React.FC = () => {
                 style={styles.rejectButton}
                 textColor="#EF4444"
                 onPress={() => handleReject(volunteer.id)}
+                accessibilityLabel={`Reject ${volunteer.name}`}
+                accessibilityRole="button"
               >
                 Reject
               </Button>
@@ -211,17 +274,39 @@ const VolunteerRequests: React.FC = () => {
         </Card.Content>
       </Card>
     </Animated.View>
-  );
+  ), [animatedValue, getStatusColor, getStatusText, handleApprove, handleReject]);
 
-  const filteredVolunteers = volunteerData.filter(volunteer => {
-    const matchesSearch = volunteer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         volunteer.specialization.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || volunteer.status === selectedFilter;
-    return matchesSearch && matchesFilter;
-  });
+  if (isOffline) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>No internet connection. Please check your network.</Text>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Loading volunteer requests...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>{error}</Text>
+        <Button onPress={fetchVolunteers} accessibilityLabel="Retry loading requests" accessibilityRole="button">
+          Retry
+        </Button>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       {/* Header */}
       <Animated.View
         style={[
@@ -262,9 +347,10 @@ const VolunteerRequests: React.FC = () => {
       >
         <Searchbar
           placeholder="Search volunteers..."
-          onChangeText={setSearchQuery}
+          onChangeText={debouncedSetSearch}
           value={searchQuery}
           style={styles.searchBar}
+          accessibilityLabel="Search volunteers"
         />
         
         <View style={styles.filterContainer}>
@@ -276,6 +362,8 @@ const VolunteerRequests: React.FC = () => {
                 selectedFilter === filter && styles.filterChipActive,
               ]}
               onPress={() => setSelectedFilter(filter)}
+              accessibilityLabel={`Filter by ${filter}`}
+              accessibilityRole="button"
             >
               <Text style={[
                 styles.filterText,
@@ -290,7 +378,11 @@ const VolunteerRequests: React.FC = () => {
 
       {/* Volunteer Cards */}
       <View style={styles.volunteersContainer}>
-        {filteredVolunteers.map((volunteer, index) => renderVolunteerCard(volunteer, index))}
+        {filteredVolunteers.length === 0 ? (
+          <Text style={styles.noResults}>No volunteers match your search/filter.</Text>
+        ) : (
+          filteredVolunteers.map((volunteer, index) => renderVolunteerCard(volunteer, index))
+        )}
       </View>
 
       {/* Summary */}
@@ -503,6 +595,18 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  noResults: {
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: 16,
+    margin: 20,
+  },
 });
 
-export default VolunteerRequests; 
+export default VolunteerRequests;

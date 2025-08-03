@@ -27,6 +27,7 @@ class AppwriteService {
   private projectId: string;
   private jwt: string | null = null;
   private sessionId: string | null = null;
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor() {
     this.endpoint = appwriteConfig.endpoint;
@@ -126,6 +127,7 @@ class AppwriteService {
   private async clearSession() {
     this.jwt = null;
     this.sessionId = null;
+    this.refreshPromise = null;
     try {
       await Promise.all([
         AsyncStorage.removeItem('appwrite_jwt'),
@@ -173,7 +175,7 @@ class AppwriteService {
       const session = await this.request('/account/sessions/email', 'POST', { 
         email, 
         password, 
-        options: { persistent: true }, // NEW LINE
+        options: { persistent: true },
       });
       console.log('Session created:', session);
 
@@ -282,6 +284,12 @@ class AppwriteService {
       return this.jwt;
     }
     
+    // If there's an ongoing refresh, return its promise to avoid multiple refreshes
+    if (this.refreshPromise) {
+      console.log('Joining ongoing JWT refresh operation');
+      return this.refreshPromise;
+    }
+    
     // Try to get a new JWT using current session
     try {
       // First, check if we have a valid session
@@ -291,27 +299,40 @@ class AppwriteService {
       }
       
       console.log('Attempting to create JWT token with session ID:', this.sessionId);
-      const jwtResponse = await this.request('/account/jwt', 'POST');
-      console.log('JWT creation response:', jwtResponse);
+      // Store the promise for concurrent requests to latch onto
+      this.refreshPromise = new Promise(async (resolve) => {
+        try {
+          const jwtResponse = await this.request('/account/jwt', 'POST');
+          console.log('JWT creation response:', jwtResponse);
+          
+          if (jwtResponse && jwtResponse.jwt) {
+            await this.saveSession(jwtResponse.jwt);
+            console.log('JWT token created and saved successfully');
+            resolve(jwtResponse.jwt);
+          } else {
+            console.log('JWT response did not contain jwt field:', jwtResponse);
+            resolve(null);
+          }
+        } catch (e) {
+          console.error('Failed to get JWT token:', e);
+          // Try to verify session is still valid
+          try {
+            const user = await this.getCurrentUser();
+            console.log('Session is valid but JWT creation failed, user:', user);
+          } catch (sessionError) {
+            console.log('Session is invalid, clearing...', sessionError);
+            await this.clearSession();
+          }
+          resolve(null);
+        } finally {
+          this.refreshPromise = null; // Reset after completion
+        }
+      });
       
-      if (jwtResponse && jwtResponse.jwt) {
-        await this.saveSession(jwtResponse.jwt);
-        console.log('JWT token created and saved successfully');
-        return jwtResponse.jwt;
-      } else {
-        console.log('JWT response did not contain jwt field:', jwtResponse);
-        return null;
-      }
+      return this.refreshPromise;
     } catch (e) {
-      console.error('Failed to get JWT token:', e);
-      // Try to verify session is still valid
-      try {
-        const user = await this.getCurrentUser();
-        console.log('Session is valid but JWT creation failed, user:', user);
-      } catch (sessionError) {
-        console.log('Session is invalid, clearing...', sessionError);
-        await this.clearSession();
-      }
+      console.error('Unexpected error during JWT refresh setup:', e);
+      this.refreshPromise = null;
       return null;
     }
   }
