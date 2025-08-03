@@ -1,30 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Animated,
   TouchableOpacity,
+  RefreshControl,
+  Text,
 } from 'react-native';
 import {
   Surface,
-  Text,
+  Text as PaperText,
   Card,
   Chip,
   Button,
-  Avatar,
   Searchbar,
   Divider,
   IconButton,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo'; // For offline detection; install via npm/yarn if needed
 import { useThemeContext } from '../../../theme';
+import { reportsApi } from '../../../api/reportsApi';
+import AuthService from '../../../api/authService';
+
+interface Report {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  location: string;
+  reporter: string;
+  reportedTime: string;
+  assignedTo: string;
+  eta: string;
+  image?: string; // Optional, as not all may have images
+}
 
 const AssignedReports: React.FC = () => {
   const { theme } = useThemeContext();
   const [animatedValue] = useState(new Animated.Value(0));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+
+    fetchReports();
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -34,60 +67,37 @@ const AssignedReports: React.FC = () => {
     }).start();
   }, []);
 
-  const reportsData = [
-    {
-      id: '1',
-      title: 'Injured Dog in Central Park',
-      description: 'Large golden retriever with injured leg, appears to be limping',
-      status: 'active',
-      priority: 'high',
-      location: 'Central Park, NY',
-      reporter: 'John Smith',
-      reportedTime: '2 hours ago',
-      assignedTo: 'Sarah Johnson',
-      eta: '30 minutes',
-      image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=200&h=200&fit=crop&crop=center',
-    },
-    {
-      id: '2',
-      title: 'Abandoned Cat Colony',
-      description: 'Multiple cats found in abandoned building, need immediate rescue',
-      status: 'in_progress',
-      priority: 'critical',
-      location: 'Brooklyn Bridge Area',
-      reporter: 'Emily Davis',
-      reportedTime: '4 hours ago',
-      assignedTo: 'Mike Wilson',
-      eta: '1 hour',
-      image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&h=200&fit=crop&crop=center',
-    },
-    {
-      id: '3',
-      title: 'Sick Bird Found',
-      description: 'Small sparrow appears to be sick, not flying properly',
-      status: 'completed',
-      priority: 'medium',
-      location: 'Manhattan, NY',
-      reporter: 'David Brown',
-      reportedTime: '1 day ago',
-      assignedTo: 'Lisa Chen',
-      eta: 'Completed',
-      image: 'https://images.unsplash.com/photo-1444464666168-49d633b86797?w=200&h=200&fit=crop&crop=center',
-    },
-    {
-      id: '4',
-      title: 'Trapped Squirrel',
-      description: 'Squirrel trapped in storm drain, needs immediate assistance',
-      status: 'pending',
-      priority: 'high',
-      location: 'Queens, NY',
-      reporter: 'Maria Garcia',
-      reportedTime: '6 hours ago',
-      assignedTo: 'Unassigned',
-      eta: 'Pending',
-      image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200&h=200&fit=crop&crop=center',
-    },
-  ];
+  const fetchReports = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await reportsApi.getNgoSpecificReports();
+      setReports(response); // Assuming response is an array of Report objects
+    } catch (err: any) {
+      console.error('Failed to fetch reports:', err);
+      if (err.message?.includes('401')) {
+        const newJwt = await AuthService.refreshToken();
+        if (newJwt) {
+          try {
+            const retryResponse = await reportsApi.getNgoSpecificReports();
+            setReports(retryResponse);
+            return;
+          } catch (retryErr) {
+            console.error('Retry failed after token refresh:', retryErr);
+          }
+        }
+      }
+      setError('Failed to load reports. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchReports();
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -151,13 +161,24 @@ const AssignedReports: React.FC = () => {
 
   const handleAcceptReport = (id: string) => {
     console.log('Accepting report:', id);
+    // TODO: Implement API call to accept report
   };
 
   const handleUpdateStatus = (id: string, status: string) => {
     console.log('Updating status:', id, status);
+    // TODO: Implement API call to update status
   };
 
-  const renderReportCard = (report: any, index: number) => (
+  const filteredReports = useMemo(() => {
+    return reports.filter(report => {
+      const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            report.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesFilter = selectedFilter === 'all' || report.status === selectedFilter;
+      return matchesSearch && matchesFilter;
+    });
+  }, [reports, searchQuery, selectedFilter]);
+
+  const renderReportCard = useMemo(() => (report: Report, index: number) => (
     <Animated.View
       key={report.id}
       style={[
@@ -179,14 +200,16 @@ const AssignedReports: React.FC = () => {
         <Card.Content style={styles.cardContent}>
           <View style={styles.cardHeader}>
             <View style={styles.reportInfo}>
-              <Text style={styles.reportTitle}>{report.title}</Text>
-              <Text style={styles.reportDescription}>{report.description}</Text>
+              <PaperText style={styles.reportTitle}>{report.title}</PaperText>
+              <PaperText style={styles.reportDescription}>{report.description}</PaperText>
             </View>
             <View style={styles.statusContainer}>
               <Chip
                 mode="flat"
                 style={[styles.statusChip, { backgroundColor: getStatusColor(report.status) + '20' }]}
                 textStyle={[styles.statusText, { color: getStatusColor(report.status) }]}
+                accessibilityLabel={`Status: ${getStatusText(report.status)}`}
+                accessibilityRole="button"
               >
                 {getStatusText(report.status)}
               </Chip>
@@ -194,6 +217,8 @@ const AssignedReports: React.FC = () => {
                 mode="flat"
                 style={[styles.priorityChip, { backgroundColor: getPriorityColor(report.priority) + '20' }]}
                 textStyle={[styles.priorityText, { color: getPriorityColor(report.priority) }]}
+                accessibilityLabel={`Priority: ${getPriorityText(report.priority)}`}
+                accessibilityRole="button"
               >
                 {getPriorityText(report.priority)}
               </Chip>
@@ -205,27 +230,27 @@ const AssignedReports: React.FC = () => {
           <View style={styles.reportDetails}>
             <View style={styles.detailRow}>
               <Ionicons name="location" size={18} color="#64748B" />
-              <Text style={styles.detailText}>{report.location}</Text>
+              <PaperText style={styles.detailText}>{report.location}</PaperText>
             </View>
             
             <View style={styles.detailRow}>
               <Ionicons name="person" size={18} color="#64748B" />
-              <Text style={styles.detailText}>Reported by {report.reporter}</Text>
+              <PaperText style={styles.detailText}>Reported by {report.reporter}</PaperText>
             </View>
             
             <View style={styles.detailRow}>
               <Ionicons name="time" size={18} color="#64748B" />
-              <Text style={styles.detailText}>{report.reportedTime}</Text>
+              <PaperText style={styles.detailText}>{report.reportedTime}</PaperText>
             </View>
             
             <View style={styles.detailRow}>
               <Ionicons name="people" size={18} color="#64748B" />
-              <Text style={styles.detailText}>Assigned to {report.assignedTo}</Text>
+              <PaperText style={styles.detailText}>Assigned to {report.assignedTo}</PaperText>
             </View>
             
             <View style={styles.detailRow}>
               <Ionicons name="timer" size={18} color="#F59E0B" />
-              <Text style={styles.detailText}>ETA: {report.eta}</Text>
+              <PaperText style={styles.detailText}>ETA: {report.eta}</PaperText>
             </View>
           </View>
 
@@ -235,6 +260,8 @@ const AssignedReports: React.FC = () => {
                 mode="contained"
                 style={[styles.acceptButton, { backgroundColor: '#10B981' }]}
                 onPress={() => handleAcceptReport(report.id)}
+                accessibilityLabel="Accept this report"
+                accessibilityRole="button"
               >
                 Accept Report
               </Button>
@@ -247,6 +274,8 @@ const AssignedReports: React.FC = () => {
                 mode="contained"
                 style={[styles.updateButton, { backgroundColor: '#3B82F6' }]}
                 onPress={() => handleUpdateStatus(report.id, 'in_progress')}
+                accessibilityLabel="Start progress on this report"
+                accessibilityRole="button"
               >
                 Start Progress
               </Button>
@@ -255,6 +284,8 @@ const AssignedReports: React.FC = () => {
                 style={styles.completeButton}
                 textColor="#10B981"
                 onPress={() => handleUpdateStatus(report.id, 'completed')}
+                accessibilityLabel="Mark this report as complete"
+                accessibilityRole="button"
               >
                 Mark Complete
               </Button>
@@ -267,6 +298,8 @@ const AssignedReports: React.FC = () => {
                 mode="contained"
                 style={[styles.completeButton, { backgroundColor: '#10B981' }]}
                 onPress={() => handleUpdateStatus(report.id, 'completed')}
+                accessibilityLabel="Mark this report as complete"
+                accessibilityRole="button"
               >
                 Mark Complete
               </Button>
@@ -275,17 +308,41 @@ const AssignedReports: React.FC = () => {
         </Card.Content>
       </Card>
     </Animated.View>
-  );
+  ), [animatedValue]);
 
-  const filteredReports = reportsData.filter(report => {
-    const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         report.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || report.status === selectedFilter;
-    return matchesSearch && matchesFilter;
-  });
+  if (isOffline) {
+    return (
+      <View style={styles.errorContainer}>
+        <PaperText style={{ color: theme.colors.error }}>No internet connection. Please check your network.</PaperText>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.errorContainer}>
+        <PaperText>Loading reports...</PaperText>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <PaperText style={{ color: theme.colors.error }}>{error}</PaperText>
+        <Button onPress={fetchReports} accessibilityLabel="Retry loading reports" accessibilityRole="button">
+          Retry
+        </Button>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       {/* Header */}
       <Animated.View
         style={[
@@ -303,8 +360,8 @@ const AssignedReports: React.FC = () => {
           },
         ]}
       >
-        <Text style={styles.headerTitle}>Assigned Reports</Text>
-        <Text style={styles.headerSubtitle}>Manage rescue reports and assignments</Text>
+        <PaperText style={styles.headerTitle}>Assigned Reports</PaperText>
+        <PaperText style={styles.headerSubtitle}>Manage rescue reports and assignments</PaperText>
       </Animated.View>
 
       {/* Search and Filter */}
@@ -329,6 +386,8 @@ const AssignedReports: React.FC = () => {
           onChangeText={setSearchQuery}
           value={searchQuery}
           style={styles.searchBar}
+          accessibilityLabel="Search for reports"
+          accessibilityRole="search"
         />
         
         <View style={styles.filterContainer}>
@@ -340,13 +399,15 @@ const AssignedReports: React.FC = () => {
                 selectedFilter === filter && styles.filterChipActive,
               ]}
               onPress={() => setSelectedFilter(filter)}
+              accessibilityLabel={`Filter by ${filter}`}
+              accessibilityRole="tab"
             >
-              <Text style={[
+              <PaperText style={[
                 styles.filterText,
                 selectedFilter === filter && styles.filterTextActive,
               ]}>
                 {filter.charAt(0).toUpperCase() + filter.slice(1).replace('_', ' ')}
-              </Text>
+              </PaperText>
             </TouchableOpacity>
           ))}
         </View>
@@ -375,23 +436,23 @@ const AssignedReports: React.FC = () => {
         ]}
       >
         <Surface style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Reports Summary</Text>
+          <PaperText style={styles.summaryTitle}>Reports Summary</PaperText>
           <View style={styles.summaryStats}>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{reportsData.length}</Text>
-              <Text style={styles.summaryLabel}>Total</Text>
+              <PaperText style={styles.summaryValue}>{reports.length}</PaperText>
+              <PaperText style={styles.summaryLabel}>Total</PaperText>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>
-                {reportsData.filter(r => r.status === 'active').length}
-              </Text>
-              <Text style={styles.summaryLabel}>Active</Text>
+              <PaperText style={styles.summaryValue}>
+                {reports.filter(r => r.status === 'active').length}
+              </PaperText>
+              <PaperText style={styles.summaryLabel}>Active</PaperText>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>
-                {reportsData.filter(r => r.status === 'completed').length}
-              </Text>
-              <Text style={styles.summaryLabel}>Completed</Text>
+              <PaperText style={styles.summaryValue}>
+                {reports.filter(r => r.status === 'completed').length}
+              </PaperText>
+              <PaperText style={styles.summaryLabel}>Completed</PaperText>
             </View>
           </View>
         </Surface>
@@ -579,6 +640,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
 });
 
-export default AssignedReports; 
+export default AssignedReports;

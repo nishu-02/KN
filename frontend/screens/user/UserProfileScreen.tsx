@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -11,6 +11,8 @@ import {
   Share,
   Modal,
   Linking,
+  RefreshControl,
+  Text as RNText,
 } from "react-native";
 import {
   Text,
@@ -30,11 +32,14 @@ import {
 } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import NetInfo from '@react-native-community/netinfo'; // For offline detection; install via npm/yarn if needed
 import { useThemeContext } from '../../theme';
 import SettingsScreen from './SettingsScreen';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch } from '../../core/redux/store';
 import { logoutUser } from '../../core/redux/slices/authSlice';
+import { usersApi } from '../../api/usersApi'; // Adjust path based on your API files
+import AuthService from '../../api/authService';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -42,7 +47,7 @@ interface Achievement {
   id: string;
   title: string;
   description: string;
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   color: string;
   progress: number;
   date: string;
@@ -134,7 +139,7 @@ const AchievementItem: React.FC<{
     >
       <Surface style={themedStyles.achievementCard} elevation={2}>
         <View style={[themedStyles.achievementIcon, { backgroundColor: item.color }]}>
-          <Ionicons name={item.icon as any} size={24} color="#fff" />
+          <Ionicons name={item.icon} size={24} color="#fff" />
         </View>
         <Text style={themedStyles.achievementTitle}>{item.title}</Text>
         <Text style={themedStyles.achievementDesc}>{item.description}</Text>
@@ -192,7 +197,7 @@ const RescueItem: React.FC<{
               { icon: "time-outline", text: item.duration },
             ].map(({ icon, text }, index) => (
               <View key={index} style={themedStyles.rescueDetailItem}>
-                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={12} color="#666" />
+                <Ionicons name={icon} size={12} color="#666" />
                 <Text style={themedStyles.rescueDetailText}>{text}</Text>
               </View>
             ))}
@@ -217,7 +222,7 @@ const RescueItem: React.FC<{
 
 const SectionCard: React.FC<{
   title: string;
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
   expanded: boolean;
   toggle: () => void;
@@ -234,6 +239,8 @@ const SectionCard: React.FC<{
           <IconButton
             icon={expanded ? "chevron-up" : "chevron-down"}
             onPress={toggle}
+            accessibilityLabel={`Toggle ${title} section`}
+            accessibilityRole="button"
           />
         )}
       />
@@ -257,7 +264,8 @@ export default function UserProfileScreen() {
       tabBackground3: '#E0E0E0',
       tabActive: '#212121',
       tabInactive: '#757575',
-      critical: '#FFCDD2'
+      critical: '#FFCDD2',
+      error: '#B00020',
     },
     spacing: { padding: 16, margin: 12, radius: 12 }
   }};
@@ -279,12 +287,30 @@ export default function UserProfileScreen() {
     categories: true,
   });
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [editProfile, setEditProfile] = useState<UserProfile | null>(null);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const navigation = useNavigation<any>();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const avatarScale = useRef(new Animated.Value(1)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+
+    fetchUserProfile();
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -305,32 +331,43 @@ export default function UserProfileScreen() {
     );
   }, []);
 
-  // --- MIGRATION: Use real API data for user profile ---
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [editProfile, setEditProfile] = useState<UserProfile | null>(null);
-  const [editError, setEditError] = useState('');
-  const [editSuccess, setEditSuccess] = useState(false);
-
-  React.useEffect(() => {
-    fetchUserProfile();
-  }, []);
-
   const fetchUserProfile = async () => {
     setProfileLoading(true);
+    setProfileError(null);
     try {
-      // Replace with your real API call
-      const data = await import('../../api/usersApi').then(m => m.usersApi.getProfile());
+      const data = await usersApi.getProfile();
       console.log('Profile data loaded:', data);
       setUserProfile(data);
-    } catch (e) {
-      console.error('Profile loading failed:', e);
+    } catch (err: any) {
+      console.error('Profile loading failed:', err);
+      let handled = false;
+      if (err.message?.includes('401') || err.message?.includes('403')) { // Extended to handle 403
+        const newJwt = await AuthService.refreshToken();
+        if (newJwt) {
+          try {
+            const retryData = await usersApi.getProfile();
+            setUserProfile(retryData);
+            handled = true;
+          } catch (retryErr) {
+            console.error('Retry failed after token refresh:', retryErr);
+          }
+        }
+      }
+      if (!handled) {
+        setProfileError(err.message?.includes('403') ? 'Access denied (403). Check permissions or token validity.' : 'Failed to load profile. Please try again.');
+      }
       setUserProfile(null);
+    } finally {
+      setProfileLoading(false);
+      setRefreshing(false);
     }
-    setProfileLoading(false);
   };
 
-  // Handler for edit profile (open modal with current data)
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchUserProfile();
+  };
+
   const handleEditProfile = () => {
     setEditProfile(userProfile);
     setEditModalVisible(true);
@@ -338,13 +375,11 @@ export default function UserProfileScreen() {
     setEditSuccess(false);
   };
 
-  // Handler for saving profile changes
   const handleSaveProfile = async () => {
     setEditError('');
     setEditSuccess(false);
     try {
-      // Replace with your real API call
-      const res = await import('../../api/usersApi').then(m => m.usersApi.updateProfile(editProfile));
+      const res = await usersApi.updateProfile(editProfile);
       console.log('Profile update response:', res);
       if (res && res.name) {
         setEditSuccess(true);
@@ -353,12 +388,32 @@ export default function UserProfileScreen() {
       } else {
         setEditError(res.error || 'Update failed');
       }
-    } catch (e) {
-      setEditError('Update failed');
+    } catch (err: any) {
+      console.error('Profile update failed:', err);
+      let handled = false;
+      if (err.message?.includes('401') || err.message?.includes('403')) { // Extended to handle 403
+        const newJwt = await AuthService.refreshToken();
+        if (newJwt) {
+          try {
+            const retryRes = await usersApi.updateProfile(editProfile);
+            if (retryRes && retryRes.name) {
+              setEditSuccess(true);
+              setEditModalVisible(false);
+              fetchUserProfile();
+              handled = true;
+            }
+          } catch (retryErr) {
+            console.error('Retry failed after token refresh:', retryErr);
+          }
+        }
+      }
+      if (!handled) {
+        setEditError('Update failed');
+      }
     }
   };
 
-  const achievements: Achievement[] = [
+  const achievements: Achievement[] = useMemo(() => [
     {
       id: "a1",
       title: "Hero Badge",
@@ -395,9 +450,9 @@ export default function UserProfileScreen() {
       progress: 0.6,
       date: "In Progress",
     },
-  ];
+  ], []);
 
-  const rescueStats: RescueStats = {
+  const rescueStats: RescueStats = useMemo(() => ({
     totalRescues: 28,
     successRate: 96,
     averageResponseTime: "12 mins",
@@ -409,9 +464,9 @@ export default function UserProfileScreen() {
       { name: "Birds", count: 3, color: "#32CD32" },
       { name: "Others", count: 2, color: "#4169E1" },
     ],
-  };
+  }), []);
 
-  const dummyRescues: Rescue[] = [
+  const dummyRescues: Rescue[] = useMemo(() => [
     {
       id: "r1",
       title: "Saved a Puppy from Drain",
@@ -447,49 +502,67 @@ export default function UserProfileScreen() {
       cost: "₹0 (Volunteer)",
       status: "Completed",
     },
-  ];
+  ], []);
 
   const toggleSection = (section: keyof typeof expandedSections) =>
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
 
   const themedStyles = styles(theme);
 
-  // Handler for sharing profile
   const handleShareProfile = async () => {
     try {
       const profileLink = `https://karunanidhan.org/certificate/${encodeURIComponent(userProfile.name.replace(/\s+/g, '-').toLowerCase())}`;
       const message = `🐾 Animal Rescue Certificate 🐾\n\nThis certifies that ${userProfile.name} (${userProfile.title || 'Animal Rescuer'}) has made a significant impact in animal rescue.\n\nLocation: ${userProfile.location || 'Location not set'}\nKarma Points: 850\nAnimals Saved: ${rescueStats.totalRescues}\nSuccess Rate: ${rescueStats.successRate}%\nReferral Code: GOODBOY497\n\nView certificate: ${profileLink}`;
       await Share.share({ message, url: profileLink });
     } catch (error) {
-      // Optionally handle error
+      console.error('Share failed:', error);
     }
   };
 
-
-  // Remove duplicate handleEditProfile (already defined above for modal logic)
-
-  // Handler for settings
   const handleSettings = () => {
     navigation.navigate('Settings');
   };
 
-  // Handler for logout
   const handleLogout = async () => {
     try {
       await dispatch(logoutUser());
-      // Navigation will be handled automatically by the App.tsx based on auth state
     } catch (error) {
       console.error('Logout failed:', error);
     }
   };
 
-  if (profileLoading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" /></View>;
-  if (!userProfile) return <Text style={{ margin: 20 }}>Profile not found.</Text>;
+  if (isOffline) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>No internet connection. Please check your network.</Text>
+      </View>
+    );
+  }
+
+  if (profileLoading) {
+    return (
+      <View style={styles.errorContainer}>
+        <ActivityIndicator size="large" accessibilityLabel="Loading profile" />
+      </View>
+    );
+  }
+
+  if (profileError || !userProfile) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>{profileError || 'Profile not found.'}</Text>
+        <Button onPress={fetchUserProfile} accessibilityLabel="Retry loading profile" accessibilityRole="button">
+          Retry
+        </Button>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
       style={themedStyles.container}
       contentContainerStyle={{ paddingBottom: theme.spacing.margin * 7.5 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Profile Banner */}
       <Animated.View style={{ opacity: fadeAnim }}>
@@ -538,9 +611,9 @@ export default function UserProfileScreen() {
               { icon: "settings-outline", label: "Settings", onPress: handleSettings },
             ].map(({ icon, label, onPress }, index) => (
               <TouchableOpacity key={index} style={themedStyles.actionButton} onPress={onPress}>
-                  <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={theme.colors.primary} />
+                <Ionicons name={icon} size={20} color={theme.colors.primary} />
                 <Text style={themedStyles.actionText}>{label}</Text>
-                </TouchableOpacity>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -561,35 +634,44 @@ export default function UserProfileScreen() {
               value={editProfile?.name || ''}
               onChangeText={v => setEditProfile(p => ({ ...p, name: v }))}
               style={{ marginBottom: 12 }}
+              accessibilityLabel="Edit name"
             />
             <TextInput
               label="Title"
               value={editProfile?.title || ''}
               onChangeText={v => setEditProfile(p => ({ ...p, title: v }))}
               style={{ marginBottom: 12 }}
+              accessibilityLabel="Edit title"
             />
             <TextInput
               label="Location"
               value={editProfile?.location || ''}
               onChangeText={v => setEditProfile(p => ({ ...p, location: v }))}
               style={{ marginBottom: 12 }}
+              accessibilityLabel="Edit location"
             />
             <TextInput
               label="Phone"
               value={editProfile?.phone || ''}
               onChangeText={v => setEditProfile(p => ({ ...p, phone: v }))}
               style={{ marginBottom: 12 }}
+              accessibilityLabel="Edit phone"
             />
             <TextInput
               label="Email"
               value={editProfile?.email || ''}
               onChangeText={v => setEditProfile(p => ({ ...p, email: v }))}
               style={{ marginBottom: 12 }}
+              accessibilityLabel="Edit email"
             />
             {editError ? <Text style={{ color: 'red', marginBottom: 8 }}>{editError}</Text> : null}
             {editSuccess ? <Text style={{ color: 'green', marginBottom: 8 }}>Profile updated!</Text> : null}
-            <Button mode="contained" onPress={handleSaveProfile} style={{ marginBottom: 8 }}>Save</Button>
-            <Button onPress={() => setEditModalVisible(false)}>Cancel</Button>
+            <Button mode="contained" onPress={handleSaveProfile} style={{ marginBottom: 8 }} accessibilityLabel="Save profile changes" accessibilityRole="button">
+              Save
+            </Button>
+            <Button onPress={() => setEditModalVisible(false)} accessibilityLabel="Cancel editing" accessibilityRole="button">
+              Cancel
+            </Button>
           </View>
         </View>
       </Modal>
@@ -627,7 +709,7 @@ export default function UserProfileScreen() {
               <Text style={themedStyles.statNumber}>{number}</Text>
               <Text style={themedStyles.statLabel}>{label}</Text>
               <View style={themedStyles.statIcon}>
-                <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={16} color={color} />
+                <Ionicons name={icon} size={16} color={color} />
               </View>
             </View>
           ))}
@@ -723,6 +805,27 @@ export default function UserProfileScreen() {
             </View>
           ))}
         </View>
+      </SectionCard>
+
+      {/* Recent Rescues */}
+      <SectionCard
+        title="Recent Rescues"
+        icon="history"
+        iconColor="#8B4513"
+        expanded={expandedSections.rescues}
+        toggle={() => toggleSection("rescues")}
+        fadeAnim={fadeAnim}
+        themedStyles={themedStyles}
+      >
+        <FlatList
+          data={dummyRescues}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <RescueItem item={item} parentFadeAnim={fadeAnim} theme={theme} themedStyles={themedStyles} />
+          )}
+        />
       </SectionCard>
 
       {/* Professional Info */}
@@ -825,27 +928,6 @@ export default function UserProfileScreen() {
         </View>
       </SectionCard>
 
-      {/* Recent Rescues */}
-      <SectionCard
-        title="Recent Rescues"
-        icon="history"
-        iconColor="#8B4513"
-        expanded={expandedSections.rescues}
-        toggle={() => toggleSection("rescues")}
-        fadeAnim={fadeAnim}
-        themedStyles={themedStyles}
-      >
-        <FlatList
-          data={dummyRescues}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RescueItem item={item} parentFadeAnim={fadeAnim} theme={theme} themedStyles={themedStyles} />
-          )}
-        />
-      </SectionCard>
-
       {/* Emergency Contact */}
       <SectionCard
         title="Emergency Contact"
@@ -875,6 +957,8 @@ export default function UserProfileScreen() {
               size={24}
               style={themedStyles.contactButton}
               onPress={() => {}}
+              accessibilityLabel="Call emergency contact"
+              accessibilityRole="button"
             />
             <IconButton
               icon="pencil"
@@ -882,6 +966,8 @@ export default function UserProfileScreen() {
               size={24}
               style={themedStyles.contactButton}
               onPress={() => {}}
+              accessibilityLabel="Edit emergency contact"
+              accessibilityRole="button"
             />
           </View>
         </View>
@@ -915,6 +1001,8 @@ export default function UserProfileScreen() {
                 size={20}
                 iconColor="#8B4513"
                 onPress={() => {}}
+                accessibilityLabel="Copy referral code"
+                accessibilityRole="button"
               />
             </View>
           </View>
@@ -936,6 +1024,8 @@ export default function UserProfileScreen() {
             style={themedStyles.shareButton}
             buttonColor="#8B4513"
             onPress={() => {}}
+            accessibilityLabel="Share referral code"
+            accessibilityRole="button"
           >
             Share Referral Code
           </Button>
@@ -952,29 +1042,16 @@ export default function UserProfileScreen() {
             style={themedStyles.logoutButton}
             icon="logout"
             onPress={handleLogout}
+            accessibilityLabel="Log out"
+            accessibilityRole="button"
           >
             Log Out
           </Button>
         </Card.Content>
       </Card>
-      {/* Edit Profile Modal */}
-      <Modal
-        visible={editModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%' }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>Edit Profile (Demo)</Text>
-            {/* Add your edit profile form here */}
-            <Button mode="contained" onPress={() => setEditModalVisible(false)} style={{ marginTop: 16 }}>Close</Button>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
-}
+};
 
 const styles = (theme: any) => StyleSheet.create({
   container: { backgroundColor: theme.colors.background, flex: 1 },
@@ -1214,10 +1291,15 @@ const styles = (theme: any) => StyleSheet.create({
     borderRadius: theme.spacing.radius,
     elevation: 4,
     overflow: "hidden",
-    
   },
   logoutButton: {
     borderRadius: 8,
     marginTop: 8,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
   },
 });

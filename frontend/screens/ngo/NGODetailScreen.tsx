@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, ScrollView, Dimensions, RefreshControl, Text as RNText } from 'react-native';
 import { Text, Card, Button, Chip, ActivityIndicator, IconButton } from 'react-native-paper';
 import { Animated } from 'react-native';
+import NetInfo from '@react-native-community/netinfo'; // For offline detection; install via npm/yarn if needed
+import Toast from 'react-native-toast-message'; // For toasts; install via npm/yarn if needed
 import { ngoApi } from '../../api/ngoApi';
 import { usersApi } from '../../api/usersApi';
+import AuthService from '../../api/authService';
 
 const { width } = Dimensions.get('window');
 
@@ -26,11 +29,23 @@ export default function NGODetailScreen({ route, navigation }: any) {
   const { ngoId } = route.params;
   const [ngo, setNgo] = useState<NGO | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
-  const fadeAnim = new Animated.Value(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+
     fetchNGODetail();
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
@@ -38,57 +53,111 @@ export default function NGODetailScreen({ route, navigation }: any) {
     }).start();
   }, []);
 
-  const fetchNGODetail = async () => {
+  const fetchNGODetail = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await ngoApi.getNGODetail(ngoId);
       if (response.ngo) {
         setNgo(response.ngo);
+      } else {
+        setError('NGO details not found.');
       }
-    } catch (error) {
-      console.error('Error fetching NGO detail:', error);
+    } catch (err: any) {
+      console.error('Error fetching NGO detail:', err);
+      let handled = false;
+      if (err.message?.includes('401') || err.message?.includes('403')) {
+        const newJwt = await AuthService.refreshToken();
+        if (newJwt) {
+          try {
+            const retryResponse = await ngoApi.getNGODetail(ngoId);
+            if (retryResponse.ngo) {
+              setNgo(retryResponse.ngo);
+              handled = true;
+            }
+          } catch (retryErr) {
+            console.error('Retry failed after token refresh:', retryErr);
+          }
+        }
+      }
+      if (!handled) {
+        setError('Failed to load NGO details. Please try again.');
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [ngoId]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNGODetail();
   };
 
-  const handleApplyVolunteer = async () => {
+  const handleApplyVolunteer = useCallback(async () => {
     if (!ngo) return;
     
     setApplying(true);
     try {
       const response = await usersApi.applyVolunteer(ngo.id);
       if (response.success) {
-        alert('Application submitted successfully!');
+        Toast.show({ type: 'success', text1: 'Application submitted successfully!' });
       } else {
-        alert(response.error || 'Failed to submit application');
+        Toast.show({ type: 'error', text1: response.error || 'Failed to submit application' });
       }
     } catch (error) {
-      alert('Failed to submit application');
+      Toast.show({ type: 'error', text1: 'Failed to submit application' });
     } finally {
       setApplying(false);
     }
-  };
+  }, [ngo]);
+
+  const renderContactItem = useMemo(() => (icon: keyof typeof Ionicons.glyphMap, text: string, label: string) => (
+    <View style={styles.contactItem}>
+      <IconButton icon={icon} size={20} accessibilityLabel={label} />
+      <Text variant="bodyMedium" style={styles.contactText}>
+        {text}
+      </Text>
+    </View>
+  ), []);
+
+  if (isOffline) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text variant="headlineSmall">No internet connection</Text>
+        <Text>Please check your network and try again.</Text>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" accessibilityLabel="Loading NGO details" />
         <Text>Loading NGO details...</Text>
       </View>
     );
   }
 
-  if (!ngo) {
+  if (error || !ngo) {
     return (
       <View style={styles.errorContainer}>
-        <Text variant="headlineSmall">NGO not found</Text>
-        <Button onPress={() => navigation.goBack()}>Go Back</Button>
+        <Text variant="headlineSmall">{error || 'NGO not found'}</Text>
+        <Button onPress={fetchNGODetail} accessibilityLabel="Retry loading NGO details" accessibilityRole="button">
+          Retry
+        </Button>
+        <Button onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
+          Go Back
+        </Button>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container} 
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       <Animated.View style={{ opacity: fadeAnim }}>
         {/* Header */}
         <Card style={styles.headerCard}>
@@ -135,36 +204,15 @@ export default function NGODetailScreen({ route, navigation }: any) {
           <Card.Content>
             <Text variant="titleLarge" style={styles.sectionTitle}>Contact Information</Text>
             
-            <View style={styles.contactItem}>
-              <IconButton icon="email" size={20} />
-              <Text variant="bodyMedium" style={styles.contactText}>
-                {ngo.email}
-              </Text>
-            </View>
-            
-            <View style={styles.contactItem}>
-              <IconButton icon="phone" size={20} />
-              <Text variant="bodyMedium" style={styles.contactText}>
-                {ngo.phone}
-              </Text>
-            </View>
+            {renderContactItem("email", ngo.email, "Email")}
+            {renderContactItem("phone", ngo.phone, "Phone")}
             
             {ngo.website && (
-              <View style={styles.contactItem}>
-                <IconButton icon="web" size={20} />
-                <Text variant="bodyMedium" style={styles.contactText}>
-                  {ngo.website}
-                </Text>
-              </View>
+              renderContactItem("web", ngo.website, "Website")
             )}
             
             {ngo.registration_number && (
-              <View style={styles.contactItem}>
-                <IconButton icon="certificate" size={20} />
-                <Text variant="bodyMedium" style={styles.contactText}>
-                  Reg. No: {ngo.registration_number}
-                </Text>
-              </View>
+              renderContactItem("certificate", `Reg. No: ${ngo.registration_number}`, "Registration number")
             )}
           </Card.Content>
         </Card>
@@ -180,6 +228,8 @@ export default function NGODetailScreen({ route, navigation }: any) {
               loading={applying}
               style={styles.actionButton}
               icon="account-plus"
+              accessibilityLabel="Apply as volunteer"
+              accessibilityRole="button"
             >
               Apply as Volunteer
             </Button>
@@ -189,6 +239,8 @@ export default function NGODetailScreen({ route, navigation }: any) {
               onPress={() => navigation.navigate('ContactNGO', { ngo })}
               style={styles.actionButton}
               icon="message"
+              accessibilityLabel="Contact NGO"
+              accessibilityRole="button"
             >
               Contact NGO
             </Button>
@@ -198,12 +250,15 @@ export default function NGODetailScreen({ route, navigation }: any) {
               onPress={() => navigation.navigate('ReportList', { ngoId: ngo.id })}
               style={styles.actionButton}
               icon="file-document"
+              accessibilityLabel="View reports"
+              accessibilityRole="button"
             >
               View Reports
             </Button>
           </Card.Content>
         </Card>
       </Animated.View>
+      <Toast /> {/* Add at root level in your app if not already */}
     </ScrollView>
   );
 }

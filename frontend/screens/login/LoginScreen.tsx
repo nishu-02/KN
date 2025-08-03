@@ -11,12 +11,12 @@ import {
   useTheme
 } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import { loginUser, resetError, createUserAccount } from '../core/redux/slices/authSlice';
-import { useAppDispatch } from '../core/redux/store';
+import { loginUser, resetError, createUserAccount } from '../../core/redux/slices/authSlice';
+import { useAppDispatch } from '../../core/redux/store';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ImageBackground } from 'react-native';
-import AuthService from '../api/authService';
+import AuthService from '../../api/authService';
 
 interface FormData {
   email: string;

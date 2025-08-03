@@ -16,7 +16,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import * as Notifications from "expo-notifications";
 import store, { RootState, useAppDispatch } from "./core/redux/store";
 import { initSession } from "./core/redux/slices/authSlice";
-import LoginScreen from "./screens/LoginScreen";
+import LoginScreen from "./screens/login/LoginScreen";
 import NGODashboardScreen from "./screens/ngo/NGODashboardScreen";
 import { registerForPushNotificationsAsync } from "./PushTokenRegister";
 

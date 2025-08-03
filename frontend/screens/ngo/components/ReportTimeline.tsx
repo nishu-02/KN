@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Animated,
+  RefreshControl,
+  Text as RNText,
 } from 'react-native';
 import {
   Surface,
@@ -13,11 +15,47 @@ import {
   Divider,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo'; // For offline detection; install via npm/yarn if needed
+import { formatDistanceToNow } from 'date-fns'; // For relative time; install via npm/yarn
 import { useThemeContext } from '../../../theme';
+import { reportsApi } from '../../../api/reportsApi';
+import AuthService from '../../../api/authService';
+
+interface TimelineItem {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  time: string; // ISO string or timestamp from API
+  status: string;
+  location?: string;
+  reporter?: string;
+  volunteer?: string;
+  eta?: string;
+  outcome?: string;
+  amount?: string;
+  donor?: string;
+  specialization?: string;
+}
 
 const ReportTimeline: React.FC = () => {
   const { theme } = useThemeContext();
   const [animatedValue] = useState(new Animated.Value(0));
+  const [timelineData, setTimelineData] = useState<TimelineItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+
+    fetchTimeline();
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -27,60 +65,51 @@ const ReportTimeline: React.FC = () => {
     }).start();
   }, []);
 
-  const timelineData = [
-    {
-      id: '1',
-      type: 'report_assigned',
-      title: 'New Report Assigned',
-      description: 'Injured dog reported in Central Park',
-      time: '2 hours ago',
-      status: 'active',
-      location: 'Central Park, NY',
-      reporter: 'John Smith',
-    },
-    {
-      id: '2',
-      type: 'volunteer_dispatched',
-      title: 'Volunteer Dispatched',
-      description: 'Sarah Johnson assigned to case #AR-2024-001',
-      time: '1 hour ago',
-      status: 'in_progress',
-      volunteer: 'Sarah Johnson',
-      eta: '30 minutes',
-    },
-    {
-      id: '3',
-      type: 'report_completed',
-      title: 'Report Completed',
-      description: 'Cat rescue completed successfully',
-      time: '3 hours ago',
-      status: 'completed',
-      location: 'Brooklyn Bridge',
-      outcome: 'Animal rescued and taken to shelter',
-    },
-    {
-      id: '4',
-      type: 'donation_received',
-      title: 'Donation Received',
-      description: 'Anonymous donor contributed $500',
-      time: '5 hours ago',
-      status: 'completed',
-      amount: '$500',
-      donor: 'Anonymous',
-    },
-    {
-      id: '5',
-      type: 'volunteer_joined',
-      title: 'New Volunteer Joined',
-      description: 'Mike Wilson completed registration',
-      time: '1 day ago',
-      status: 'completed',
-      volunteer: 'Mike Wilson',
-      specialization: 'Large Animal Rescue',
-    },
-  ];
+  const fetchTimeline = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await reportsApi.getTimeline(); // Assume returns TimelineItem[]
+      // Format times to relative (e.g., "2 hours ago")
+      const formattedData = response.map(item => ({
+        ...item,
+        time: formatDistanceToNow(new Date(item.time), { addSuffix: true }),
+      }));
+      setTimelineData(formattedData);
+    } catch (err: any) {
+      console.error('Failed to fetch timeline:', err);
+      let handled = false;
+      if (err.message?.includes('401') || err.message?.includes('403')) {
+        const newJwt = await AuthService.refreshToken();
+        if (newJwt) {
+          try {
+            const retryResponse = await reportsApi.getTimeline();
+            const formattedData = retryResponse.map(item => ({
+              ...item,
+              time: formatDistanceToNow(new Date(item.time), { addSuffix: true }),
+            }));
+            setTimelineData(formattedData);
+            handled = true;
+          } catch (retryErr) {
+            console.error('Retry failed after token refresh:', retryErr);
+          }
+        }
+      }
+      if (!handled) {
+        setError('Failed to load timeline. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
-  const getStatusColor = (status: string) => {
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchTimeline();
+  };
+
+  const getStatusColor = useMemo(() => (status: string) => {
     switch (status) {
       case 'active':
         return '#3B82F6';
@@ -91,9 +120,9 @@ const ReportTimeline: React.FC = () => {
       default:
         return '#64748B';
     }
-  };
+  }, []);
 
-  const getStatusIcon = (type: string) => {
+  const getStatusIcon = useMemo(() => (type: string) => {
     switch (type) {
       case 'report_assigned':
         return 'document-text';
@@ -108,9 +137,9 @@ const ReportTimeline: React.FC = () => {
       default:
         return 'time';
     }
-  };
+  }, []);
 
-  const renderTimelineItem = (item: any, index: number) => (
+  const renderTimelineItem = useMemo(() => (item: TimelineItem, index: number) => (
     <Animated.View
       key={item.id}
       style={[
@@ -200,10 +229,50 @@ const ReportTimeline: React.FC = () => {
         </Card>
       </View>
     </Animated.View>
-  );
+  ), [animatedValue, timelineData.length, getStatusColor]);
+
+  if (isOffline) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>No internet connection. Please check your network.</Text>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Loading timeline...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={{ color: theme.colors.error }}>{error}</Text>
+        <Button onPress={fetchTimeline} accessibilityLabel="Retry loading timeline" accessibilityRole="button">
+          Retry
+        </Button>
+      </View>
+    );
+  }
+
+  if (timelineData.length === 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>No timeline events available.</Text>
+        <Button onPress={fetchTimeline} accessibilityLabel="Refresh timeline" accessibilityRole="button">
+          Refresh
+        </Button>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       {/* Header */}
       <Animated.View
         style={[
@@ -251,15 +320,15 @@ const ReportTimeline: React.FC = () => {
           <Text style={styles.summaryTitle}>Timeline Summary</Text>
           <View style={styles.summaryStats}>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>5</Text>
+              <Text style={styles.summaryValue}>{timelineData.length}</Text>
               <Text style={styles.summaryLabel}>Activities Today</Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>3</Text>
+              <Text style={styles.summaryValue}>{timelineData.filter(i => i.status === 'active').length}</Text>
               <Text style={styles.summaryLabel}>Active Reports</Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>2</Text>
+              <Text style={styles.summaryValue}>{timelineData.filter(i => i.status === 'completed').length}</Text>
               <Text style={styles.summaryLabel}>Completed</Text>
             </View>
           </View>
@@ -402,6 +471,12 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
 });
 
-export default ReportTimeline; 
+export default ReportTimeline;
