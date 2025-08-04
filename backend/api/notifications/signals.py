@@ -85,8 +85,8 @@ def handle_emergency_alerts(sender, instance, created, **kwargs):
     """
     if created:
         # Check if this is a critical emergency based on AI analysis
-        report_data = instance.report_data or {}
-        severity = report_data.get('severity', 'low')
+        ai_analysis = instance.ai_analysis or {}
+        severity = ai_analysis.get('severity', 'low')
         
         if severity in ['high', 'critical']:
             message = f"🚨 CRITICAL: {severity.upper()} severity injury report at {instance.location}"

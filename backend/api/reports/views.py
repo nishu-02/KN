@@ -15,7 +15,6 @@ from .serializers import InjuryReportSerializer, ExpoPushTokenSerializer
 from .services.gemini_client import analyze_animal_injury
 from .services.appwrite_service import (
     create_appwrite_report,
-    create_appwrite_notification,
     upload_image_to_appwrite,
     get_image_url,
 )
@@ -27,7 +26,6 @@ from notifications.utils import send_and_log_notification
 from utils.logger import (
     reports_logger,
     log_api_request,
-    log_function_call,
     log_report_activity,
     log_error_with_context,
 )
@@ -43,7 +41,6 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         try:
             image_file = request.FILES.get('image')
-            user_id = request.data.get('user_id')
             location = request.data.get('location')
 
             if isinstance(location, str):
@@ -52,28 +49,24 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                 except json.JSONDecodeError:
                     return Response({"error": "Invalid location format"}, status=400)
 
-            if not image_file or not user_id or not location:
+            if not image_file or not location:
                 return Response({"error": "Missing required fields"}, status=400)
 
             validate_location_data(location)
             lat = float(location['latitude'])
             lon = float(location['longitude'])
 
-            # Get human-readable address
             location['address'] = reverse_geocode(lat, lon) or f"Near {lat}, {lon}"
 
-            # Prepare image
             image_bytes = image_file.read()
             base64_image = base64.b64encode(image_bytes).decode('utf-8')
 
-            # AI Analysis
             ai_response = analyze_animal_injury(base64_image)
             if not ai_response.get('success'):
                 return Response({"error": ai_response['error']}, status=502)
 
             ai_result = ai_response['result']
 
-            # Upload image
             file_like = io.BytesIO(image_bytes)
             file_like.name = image_file.name
             file_id = upload_image_to_appwrite(file_like)
@@ -82,11 +75,12 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 report = InjuryReport.objects.create(
                     report_id=uuid.uuid4(),
-                    user_id=user_id,
+                    user_id=request.user.id,
                     image_url=image_url,
                     location=json.dumps(location),
                     latitude=lat,
                     longitude=lon,
+                    status='pending',
                     title=ai_result.get('title', ''),
                     description=ai_result.get('description', ''),
                     species=ai_result.get('species', 'Unknown'),
@@ -100,27 +94,18 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                     urgency=ai_result.get('urgency', 'Unknown'),
                     behavior=ai_result.get('behavior', 'Unknown'),
                     context=ai_result.get('context', 'Unknown'),
-                    vet_timeline=ai_result.get('vetTimeline', 'Unknown'),
-                    ai_confidence=ai_result.get('aiConfidence', 'Medium'),
-                    severity_score=ai_result.get('severityScore'),
-                    urgency_score=ai_result.get('urgencyScore'),
-                    behavior_score=ai_result.get('behaviorScore'),
-                    age_score=ai_result.get('ageScore'),
                     confidence_score=ai_result.get('confidenceScore'),
                     care_tips=ai_result.get('careTips', []),
                     immediate_actions=ai_result.get('actions', []),
                     environment_factors=ai_result.get('environmentFactors', ''),
-                    vital_signs=ai_result.get('vitalSigns', {}),
-                    ai_analysis=ai_result,
-                    report_data=ai_result
+                    ai_analysis=ai_result
                 )
 
-                # Appwrite: save + notify
                 create_appwrite_report(report)
                 notification_triggers.notify_new_injury_report(report)
 
             log_report_activity(
-                str(report.report_id), 'created', user_id,
+                str(report.report_id), 'created', request.user.id,
                 {'ai_analysis_success': True, 'image_uploaded': True, 'location': location}
             )
 
@@ -133,7 +118,7 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
         except Exception as e:
             log_error_with_context(reports_logger, e, {
                 'action': 'create_report',
-                'user_id': request.data.get('user_id'),
+                'user_id': str(request.user.id),
             })
             return Response({"error": str(e)}, status=500)
 
@@ -230,16 +215,14 @@ class SavePushTokenView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        user_id = request.data.get('user_id')
         token = request.data.get('token')
-
-        if not user_id or not token:
-            return Response({"error": "Missing user_id or token"}, status=400)
+        if not token:
+            return Response({"error": "Missing token"}, status=400)
 
         try:
             validate_expo_push_token(token)
             ExpoPushToken.objects.update_or_create(
-                user_id=user_id, defaults={"token": token}
+                user_id=request.user.id, defaults={"token": token}
             )
             return Response({"message": "Token saved successfully"}, status=200)
         except Exception as e:
