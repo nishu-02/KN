@@ -31,6 +31,8 @@ LOGS_DIR.mkdir(exist_ok=True)
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-p9t3q!th8&!tt@8=%rdzr0qe)t&ez1(yi83h4ob2p(6gono#w%')
 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
