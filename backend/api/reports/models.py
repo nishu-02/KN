@@ -55,15 +55,6 @@ class InjuryReport(models.Model):
     def __str__(self):
         return f"Report {self.report_id} - {self.title or 'Untitled'} - {self.status}"
 
-class ExpoPushToken(models.Model):
-    user_id = models.CharField(max_length=255, unique=True)
-    token = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return f"Push token for {self.user_id}"
-
 class ReportStatusHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     report = models.ForeignKey('InjuryReport', on_delete=models.CASCADE, related_name='status_history')

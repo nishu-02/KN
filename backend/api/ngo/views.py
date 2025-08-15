@@ -11,8 +11,8 @@ from .serializers import NGORegisterSerializer
 from reports.models import InjuryReport
 from reports.serializers import InjuryReportSerializer
 from users.models import VolunteerApplication
-from notifications.utils import send_and_log_notification
-from notifications.notification_triggers import notification_triggers
+# Remove unused import
+# Remove unused import
 from utils.logger import (
     ngo_logger, log_api_request, log_ngo_activity, 
     log_error_with_context

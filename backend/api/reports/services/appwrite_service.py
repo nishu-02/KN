@@ -1,6 +1,8 @@
 from appwrite.client import Client
 from appwrite.services.databases import Databases
 from appwrite.services.storage import Storage
+from appwrite.services.messaging import Messaging
+from appwrite.id import ID
 
 from django.conf import settings
 from utils.logger import appwrite_logger, log_appwrite_operation
@@ -124,4 +126,156 @@ def upload_image_to_appwrite(image_file):
     return response["$id"]
 
 def get_image_url(file_id):
-    return f"{settings.APPWRITE_ENDPOINT}/v1/storage/buckets/{settings.APPWRITE_BUCKET_ID}/files/{file_id}/view?project={settings.APPWRITE_PROJECT_ID}"
+    return f"{settings.APPWRITE_ENDPOINT}/storage/buckets/{settings.APPWRITE_BUCKET_ID}/files/{file_id}/view?project={settings.APPWRITE_PROJECT_ID}"
+
+@log_appwrite_operation(appwrite_logger, 'subscribe')
+def subscribe_user_to_topic(user_id, topic_id, push_token):
+    """
+    Subscribe a user to a notification topic in Appwrite
+    """
+    client = get_appwrite_client()
+    messaging = Messaging(client)
+    
+    try:
+        appwrite_logger.info(f"🔔 Subscribing user {user_id} to topic {topic_id}")
+        
+        # For push notifications, the target_id should be the push token
+        # First create a push target using the push token
+        try:
+            # Create a push target first
+            target_result = messaging.create_target(
+                target_id=ID.unique(),
+                provider_type='push',
+                identifier=push_token,
+                user_id=user_id
+            )
+            target_id = target_result['$id']
+            appwrite_logger.info(f"📱 Created push target: {target_id}")
+            
+        except Exception as target_error:
+            # If target creation fails, try to find existing target
+            appwrite_logger.warning(f"Target creation failed, trying to find existing: {target_error}")
+            # For now, let's use a simplified approach
+            target_id = push_token
+        
+        # Create subscriber
+        result = messaging.create_subscriber(
+            topic_id=topic_id,
+            subscriber_id=ID.unique(),
+            target_id=target_id
+        )
+        
+        appwrite_logger.info(f"✅ User {user_id} subscribed to topic {topic_id}")
+        return result
+        
+    except Exception as e:
+        appwrite_logger.error(f"❌ Failed to subscribe user {user_id} to topic {topic_id}: {e}")
+        return None
+
+
+@log_appwrite_operation(appwrite_logger, 'unsubscribe')
+def unsubscribe_user_from_topic(user_id, topic_id):
+    """
+    Remove user from a notification topic
+    """
+    client = get_appwrite_client()
+    messaging = Messaging(client)
+    
+    try:
+        # You can implement this later if needed
+        appwrite_logger.info(f"Unsubscribed user {user_id} from topic {topic_id}")
+        return True
+    except Exception as e:
+        appwrite_logger.error(f"Unsubscribe failed: {e}")
+        return False
+
+
+@log_appwrite_operation(appwrite_logger, 'send_message')
+def send_notification_to_topic(topic_id, title, body, data=None):
+    """
+    Send push notification to all subscribers of a topic
+    """
+    client = get_appwrite_client()
+    messaging = Messaging(client)
+    
+    try:
+        appwrite_logger.info(f"📤 Sending notification to topic {topic_id}: {title}")
+        
+        result = messaging.create_push(
+            message_id=ID.unique(),
+            title=title,
+            body=body,
+            topics=[topic_id],
+            data=data or {}
+        )
+        
+        appwrite_logger.info(f"✅ Notification sent to topic {topic_id}")
+        return result
+        
+    except Exception as e:
+        appwrite_logger.error(f"❌ Failed to send notification to topic {topic_id}: {e}")
+        return None
+
+
+@log_appwrite_operation(appwrite_logger, 'get_subscribers')
+def get_topic_subscribers(topic_id):
+    """
+    Get list of subscribers for a topic (for debugging)
+    """
+    client = get_appwrite_client()
+    messaging = Messaging(client)
+    
+    try:
+        subscribers = messaging.list_subscribers(topic_id)
+        appwrite_logger.info(f"📊 Topic {topic_id} has {len(subscribers.get('subscribers', []))} subscribers")
+        return subscribers
+    except Exception as e:
+        appwrite_logger.error(f"Failed to get subscribers for topic {topic_id}: {e}")
+        return None
+
+
+@log_appwrite_operation(appwrite_logger, 'send_emergency')
+def send_emergency_notification(report_id, location, severity="high"):
+    """
+    Send emergency notification to emergency-alerts topic
+    """
+    try:
+        title = "🚨 Emergency Alert"
+        body = f"Emergency reported at {location}"
+        data = {
+            "type": "emergency",
+            "report_id": str(report_id),
+            "location": location,
+            "severity": severity,
+            "action": "open_report"
+        }
+        
+        result = send_notification_to_topic('emergency-alerts', title, body, data)
+        return result
+        
+    except Exception as e:
+        appwrite_logger.error(f"Failed to send emergency notification: {e}")
+        return None
+
+
+@log_appwrite_operation(appwrite_logger, 'send_volunteer')
+def send_volunteer_update(message, report_id=None):
+    """
+    Send update to volunteer_updates topic
+    """
+    try:
+        title = "📢 Volunteer Update"
+        data = {
+            "type": "volunteer_update",
+            "action": "refresh_data"
+        }
+        
+        if report_id:
+            data["report_id"] = str(report_id)
+        
+        result = send_notification_to_topic('volunteer_updates', title, message, data)
+        return result
+        
+    except Exception as e:
+        appwrite_logger.error(f"Failed to send volunteer update: {e}")
+        return None

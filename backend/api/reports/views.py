@@ -7,22 +7,21 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.generics import CreateAPIView
 from django.db import transaction
 
-from .models import InjuryReport, ExpoPushToken
-from .serializers import InjuryReportSerializer, ExpoPushTokenSerializer
+from .models import InjuryReport
+from users.models import UserPushToken
+from .serializers import InjuryReportSerializer
 from .services.gemini_client import analyze_animal_injury
 from .services.appwrite_service import (
     create_appwrite_report,
     upload_image_to_appwrite,
-    get_image_url,
+    get_image_url
 )
+
 from reports.services.reverse_geocode import reverse_geocode
 from reports.services.geo import get_nearby_reports
 from users.models import UserProfile
-from notifications.notification_triggers import notification_triggers
-from notifications.utils import send_and_log_notification
 from utils.logger import (
     reports_logger,
     log_api_request,
@@ -31,6 +30,7 @@ from utils.logger import (
 )
 from utils.validators import validate_location_data, validate_expo_push_token
 
+# End of imports
 
 class InjuryReportViewSet(viewsets.ModelViewSet):
     queryset = InjuryReport.objects.all()
@@ -102,7 +102,13 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                 )
 
                 create_appwrite_report(report)
-                notification_triggers.notify_new_injury_report(report)
+                
+                # Send emergency alert using consolidated notification service
+                from notifications.consolidated_service import send_emergency_alert
+                send_emergency_alert(
+                    report_id=str(report.report_id),
+                    location=location.get('address', f"Near {lat}, {lon}")
+                )
 
             log_report_activity(
                 str(report.report_id), 'created', request.user.id,
@@ -168,13 +174,13 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                     report.status = new_status
                     report.save()
 
-            send_and_log_notification(
-                recipient_id=report.user_id,
-                recipient_type="user",
-                title="Report Status Updated",
-                body="Your report status has changed to " + new_status,
-                data={"report_id": str(report.report_id), "status": new_status},
-                report=report
+            # Send status update using consolidated notification service
+            from notifications.consolidated_service import send_status_update
+            send_status_update(
+                user_id=str(report.user_id),
+                report_id=str(report.report_id),
+                new_status=new_status,
+                location=json.loads(report.location).get('address', 'Unknown location')
             )
 
             return Response({"message": f"Report marked as {new_status}"}, status=200)
@@ -207,23 +213,3 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
         reports = InjuryReport.objects.filter(ngo_assigned_id=user_id)
         serializer = self.get_serializer(reports, many=True)
         return Response(serializer.data)
-
-
-class SavePushTokenView(CreateAPIView):
-    queryset = ExpoPushToken.objects.all()
-    serializer_class = ExpoPushTokenSerializer
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        token = request.data.get('token')
-        if not token:
-            return Response({"error": "Missing token"}, status=400)
-
-        try:
-            validate_expo_push_token(token)
-            ExpoPushToken.objects.update_or_create(
-                user_id=request.user.id, defaults={"token": token}
-            )
-            return Response({"message": "Token saved successfully"}, status=200)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)

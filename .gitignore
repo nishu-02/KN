@@ -2,3 +2,4 @@ venv/
 .env
 backend/api/reports/__pycache__
 logs
+backend/api/staticfiles

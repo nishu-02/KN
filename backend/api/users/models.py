@@ -16,8 +16,46 @@ class UserProfile(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def get_default_notification_preferences(self):
+        """Get default notification preferences"""
+        return {
+            'emergency_alerts': True,      # Emergency notifications (all users)
+            'status_updates': True,        # Report status updates  
+            'general_announcements': True, # General announcements
+            'injury_reports': self.is_volunteer  # Only for volunteers/NGOs
+        }
+    
+    def save(self, *args, **kwargs):
+        # Set default notification preferences if empty
+        if not self.notification_preferences:
+            self.notification_preferences = self.get_default_notification_preferences()
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return self.name or self.appwrite_user_id
+
+class UserPushToken(models.Model):
+    """Store user push tokens for notifications"""
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='push_tokens')
+    appwrite_user_id = models.CharField(max_length=255, db_index=True)
+    token = models.CharField(max_length=500, unique=True)
+    device_id = models.CharField(max_length=255, blank=True, null=True)
+    platform = models.CharField(max_length=10, choices=[('ios', 'iOS'), ('android', 'Android')], blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_used = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'token')
+        indexes = [
+            models.Index(fields=['appwrite_user_id']),
+            models.Index(fields=['is_active']),
+        ]
+
+    def __str__(self):
+        return f"Push token for {self.user.name or self.appwrite_user_id}"
 
 class VolunteerApplication(models.Model):
     STATUS_CHOICES = [

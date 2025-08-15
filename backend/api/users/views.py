@@ -2,15 +2,16 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.throttling import UserRateThrottle
+from django.db import transaction
 
 from reports.models import InjuryReport
 from users.models import UserProfile, VolunteerApplication
 from ngo.models import NGO
 from reports.serializers import InjuryReportSerializer
 from users.serializers import UserProfileSerializer, NotificationPreferencesSerializer
-from notifications.notification_triggers import notification_triggers
+# Remove unused import
 from .services.avatar_service import AvatarService
 from utils.logger import (
     user_logger, log_api_request, log_user_activity, 
@@ -74,7 +75,41 @@ class UserReportViewSet(viewsets.ViewSet):
 
 class UserProfileViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    @action(detail=False, methods=['get'], url_path='onboarding-status')
+    @log_api_request(user_logger)
+    def onboarding_status(self, request):
+        """ Check if user needs onboarding """
+        try:
+            user_id = request.user_id
+            
+            # Check if profile exists
+            profile_exists = UserProfile.objects.filter(appwrite_user_id=user_id).exists()
+            ngo_exists = NGO.objects.filter(appwrite_user_id=user_id).exists()
+            
+            if profile_exists or ngo_exists:
+                return Response({
+                    "onboarding_required": False,
+                    "account_type": "ngo" if ngo_exists else "user",
+                    "profile_complete": True
+                })
+            else:
+                return Response({
+                    "onboarding_required": True,
+                    "account_type": "unknown",
+                    "profile_complete": False,
+                    "onboarding_url": "/users/profile/onboard/"
+                })
+                
+        except Exception as e:
+            log_error_with_context(user_logger, e, {
+                'action': 'onboarding_status',
+                'user_id': request.user_id
+            })
+            return Response({
+                "error": "Failed to check onboarding status"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'], url_path='whoami')
     @log_api_request(user_logger)
@@ -139,7 +174,9 @@ class UserProfileViewSet(viewsets.ViewSet):
         except UserProfile.DoesNotExist:
             user_logger.warning(f"Profile not found: user_id={request.user_id}")
             return Response({
-                "error": "Profile not found"
+                "error": "Profile not found",
+                "requires_onboarding": True,
+                "onboarding_url": "/users/profile/onboard/"
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             log_error_with_context(user_logger, e, {
@@ -147,6 +184,67 @@ class UserProfileViewSet(viewsets.ViewSet):
                 'user_id': request.user_id
             })
             raise
+
+    @action(detail=False, methods=['post'], url_path='onboard')
+    @log_api_request(user_logger)
+    def onboard_user(self, request):
+        """ Complete user onboarding - create profile for authenticated user """
+        try:
+            # Check if profile already exists
+            if UserProfile.objects.filter(appwrite_user_id=request.user_id).exists():
+                return Response({
+                    "error": "Profile already exists",
+                    "action": "redirect_to_profile"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Get user data from request
+            name = request.data.get('name', f"User {request.user_id[:8]}")
+            email = request.data.get('email', f"user_{request.user_id}@example.com")
+            is_volunteer = request.data.get('is_volunteer', True)
+            bio = request.data.get('bio', '')
+            location_data = request.data.get('location', {})
+            
+            # Create the profile atomically
+            with transaction.atomic():
+                profile = UserProfile.objects.create(
+                    appwrite_user_id=request.user_id,
+                    name=name,
+                    email=email,
+                    is_volunteer=is_volunteer,
+                    bio=bio,
+                    latitude=location_data.get('latitude'),
+                    longitude=location_data.get('longitude'),
+                    notification_preferences={
+                        'email_notifications': True,
+                        'push_notifications': True,
+                        'emergency_alerts': True
+                    }
+                )
+            
+            user_logger.info(f"User onboarding completed: user_id={request.user_id}, profile_id={profile.id}")
+            
+            # Log the onboarding activity
+            log_user_activity(request.user_id, 'onboarding_completed', {
+                'profile_id': profile.id,
+                'is_volunteer': is_volunteer
+            })
+            
+            # Return the created profile
+            serializer = UserProfileSerializer(profile)
+            return Response({
+                "message": "Onboarding completed successfully",
+                "profile": serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            log_error_with_context(user_logger, e, {
+                'action': 'onboard_user',
+                'user_id': request.user_id
+            })
+            return Response({
+                "error": "Onboarding failed",
+                "details": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['patch'], url_path='update')
     @log_api_request(user_logger)
@@ -309,7 +407,7 @@ class UserProfileViewSet(viewsets.ViewSet):
                 "error": "User profile not found"
             }, status=status.HTTP_404_NOT_FOUND)
 
-    @action(detail=False, methods=['patch'], url_path='notification-preferences')
+    @action(detail=False, methods=['post', 'patch'], url_path='notification-preferences')
     @log_api_request(user_logger)
     def update_notification_preferences(self, request):
         """ Update notification preferences """
@@ -369,8 +467,7 @@ class VolunteerApplicationViewSet(viewsets.ViewSet):
                     'error': "You have already applied to this NGO"
                 }, status=status.HTTP_409_CONFLICT)
             
-            # Notify the NGO about the new volunteer application
-            notification_triggers.notify_volunteer_application_submitted(application)
+            # Note: Volunteer application notification removed as part of cleanup
             
             log_user_activity(request.user_id, 'volunteer_application_submitted', {
                 'ngo_id': ngo_id,
