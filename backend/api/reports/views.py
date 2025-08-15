@@ -101,14 +101,14 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                     ai_analysis=ai_result
                 )
 
+
                 create_appwrite_report(report)
-                
-                # Send emergency alert using consolidated notification service
-                from notifications.consolidated_service import send_emergency_alert
-                send_emergency_alert(
-                    report_id=str(report.report_id),
-                    location=location.get('address', f"Near {lat}, {lon}")
-                )
+
+                # Send injury report notification to NGOs and volunteers
+                from utils.notification_triggers import notify_injury_report_created, notify_emergency_alert
+                notify_injury_report_created(report)
+                # Optionally, also send emergency alert to all users
+                notify_emergency_alert(str(report.report_id), location.get('address', f"Near {lat}, {lon}"))
 
             log_report_activity(
                 str(report.report_id), 'created', request.user.id,

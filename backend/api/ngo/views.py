@@ -13,10 +13,12 @@ from reports.serializers import InjuryReportSerializer
 from users.models import VolunteerApplication
 # Remove unused import
 # Remove unused import
+
 from utils.logger import (
     ngo_logger, log_api_request, log_ngo_activity, 
     log_error_with_context
 )
+from utils import notification_triggers
 
 
 class NGOSearchPagination(PageNumberPagination):
@@ -294,6 +296,17 @@ class NGOViewSet(viewsets.ModelViewSet):
                 "error": "NGO not found"
             }, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=True, methods=['post'], url_path='apply-volunteer')
+    def apply_volunteer(self, request, ngo_id=None):
+        """User applies to volunteer at an NGO."""
+        user = request.user
+        ngo = self.get_object()
+        # Create application (simplified, add validation as needed)
+        application = VolunteerApplication.objects.create(user=user, ngo=ngo, status='pending')
+        # Notify NGO
+        notification_triggers.notify_volunteer_applied(application)
+        return Response({"message": "Application submitted."}, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['patch'], url_path='update-application-status')
     def update_application_status(self, request, ngo_id=None):
         """Update volunteer application status"""
@@ -329,8 +342,10 @@ class NGOViewSet(viewsets.ModelViewSet):
             application.status = new_status
             application.save()
 
-            # Notify the user about application status change
-            notification_triggers.notify_volunteer_application_status_update(application, old_status)
+
+            # Notify the user if accepted
+            if new_status == 'accepted':
+                notification_triggers.notify_volunteer_accepted(application)
 
             return Response({
                 "message": f"Application marked as {new_status}"

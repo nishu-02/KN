@@ -308,6 +308,50 @@ class UserProfileViewSet(viewsets.ViewSet):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False, methods=['post'], url_path='register-device')
+    @log_api_request(user_logger)
+    def register_device(self, request):
+        """Register or update a push token for the authenticated user"""
+        try:
+            user_id = request.user_id
+            token = request.data.get('token')
+            platform = request.data.get('platform')
+            device_id = request.data.get('deviceId')
+
+            if not token:
+                return Response({'error': 'token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            profile = UserProfile.objects.get(appwrite_user_id=user_id)
+
+            # Upsert UserPushToken
+            obj, created = UserPushToken.objects.update_or_create(
+                user=profile,
+                token=token,
+                defaults={
+                    'appwrite_user_id': user_id,
+                    'device_id': device_id,
+                    'platform': platform,
+                    'is_active': True
+                }
+            )
+
+            # Subscribe to volunteer topic if applicable
+            try:
+                from .services.push_service import subscribe_token_to_topic
+                if profile.is_volunteer:
+                    subscribe_token_to_topic(token, 'volunteer')
+            except Exception as e:
+                user_logger.warning(f"Failed to subscribe token to topic: {e}")
+
+            user_logger.info(f"Registered push token for user {user_id}")
+            return Response({'ok': True, 'created': created})
+
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            log_error_with_context(user_logger, e, {'action': 'register_device', 'user_id': request.user_id})
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['post'], url_path='upload-avatar')
     @log_api_request(user_logger)
     def upload_avatar(self, request):

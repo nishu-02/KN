@@ -150,6 +150,7 @@ REST_FRAMEWORK = {
 }
 
 
+
 # Appwrite Configuration
 APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT")
 APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID")
@@ -157,6 +158,13 @@ APPWRITE_API_KEY = os.getenv("APPWRITE_API_KEY")
 APPWRITE_DATABASE_ID = os.getenv("APPWRITE_DATABASE_ID")
 APPWRITE_REPORT_COLLECTION_ID = os.getenv("APPWRITE_REPORT_COLLECTION_ID")
 APPWRITE_BUCKET_ID = os.getenv("APPWRITE_BUCKET_ID")
+
+# Appwrite Function for notifications
+APPWRITE_FUNCTION_ID = os.getenv("APPWRITE_FUNCTION_ID", "")
+APPWRITE_FUNCTION_ENDPOINT = os.getenv(
+    "APPWRITE_FUNCTION_ENDPOINT",
+    f"{APPWRITE_ENDPOINT}/functions/{os.getenv('APPWRITE_FUNCTION_ID', '')}/executions"
+)
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
