@@ -57,6 +57,31 @@ class UserPushToken(models.Model):
     def __str__(self):
         return f"Push token for {self.user.name or self.appwrite_user_id}"
 
+
+class PushToken(models.Model):
+    """Generic push token storage for any user type (UserProfile or NGO)"""
+    appwrite_user_id = models.CharField(max_length=255, db_index=True)
+    token = models.CharField(max_length=500, unique=True)
+    device_id = models.CharField(max_length=255, blank=True, null=True)
+    platform = models.CharField(max_length=10, choices=[('ios', 'iOS'), ('android', 'Android')], blank=True)
+    user_type = models.CharField(max_length=20, choices=[('user', 'User'), ('ngo', 'NGO')], default='user')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_used = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('appwrite_user_id', 'token')
+        indexes = [
+            models.Index(fields=['appwrite_user_id']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['user_type']),
+        ]
+
+    def __str__(self):
+        return f"Push token for {self.appwrite_user_id} ({self.user_type})"
+
+
 class VolunteerApplication(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),

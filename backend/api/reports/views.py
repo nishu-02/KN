@@ -10,7 +10,6 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 
 from .models import InjuryReport
-from users.models import UserPushToken
 from .serializers import InjuryReportSerializer
 from .services.gemini_client import analyze_animal_injury
 from .services.appwrite_service import (
@@ -175,13 +174,7 @@ class InjuryReportViewSet(viewsets.ModelViewSet):
                     report.save()
 
             # Send status update using consolidated notification service
-            from notifications.consolidated_service import send_status_update
-            send_status_update(
-                user_id=str(report.user_id),
-                report_id=str(report.report_id),
-                new_status=new_status,
-                location=json.loads(report.location).get('address', 'Unknown location')
-            )
+
 
             return Response({"message": f"Report marked as {new_status}"}, status=200)
 

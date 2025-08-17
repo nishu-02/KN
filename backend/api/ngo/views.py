@@ -40,10 +40,31 @@ class NGOViewSet(viewsets.ModelViewSet):
     queryset = NGO.objects.all()
     serializer_class = NGORegisterSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'ngo_id'
+    lookup_field = 'appwrite_user_id'
     pagination_class = NGOSearchPagination
     filter_backends = [SearchFilter]
     search_fields = ['name', 'description', 'category', 'location']
+
+    def get_object(self):
+        """
+        Override get_object to handle both integer IDs and appwrite_user_ids
+        """
+        lookup_value = self.kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        if lookup_value is None:
+            return super().get_object()
+        
+        # Try to get by appwrite_user_id first
+        try:
+            return NGO.objects.get(appwrite_user_id=lookup_value)
+        except NGO.DoesNotExist:
+            # If not found, try by integer ID for backward compatibility
+            try:
+                if lookup_value.isdigit():
+                    return NGO.objects.get(id=int(lookup_value))
+            except (NGO.DoesNotExist, ValueError):
+                pass
+            # If all fails, raise the original exception
+            raise NGO.DoesNotExist()
 
     @log_api_request(ngo_logger)
     def create(self, request, *args, **kwargs):
@@ -63,20 +84,21 @@ class NGOViewSet(viewsets.ModelViewSet):
 
         data = request.data.copy()
         data["appwrite_user_id"] = user_id  # Inject Appwrite user ID
-        
+
         serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             ngo = serializer.save()
-            
-            log_ngo_activity(str(ngo.ngo_id), 'registered', {
+
+
+            log_ngo_activity(str(ngo.appwrite_user_id), 'registered', {
                 'user_id': user_id,
                 'name': ngo.name,
                 'category': ngo.category
             })
-            
+
             return Response({
                 "message": "NGO registered successfully",
-                "ngo_id": serializer.instance.ngo_id
+                "ngo_id": serializer.instance.id
             }, status=status.HTTP_201_CREATED)
         else:
             ngo_logger.warning(f"NGO registration validation failed: user_id={user_id}, errors={serializer.errors}")
@@ -95,7 +117,7 @@ class NGOViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='accept-report')
     @log_api_request(ngo_logger)
-    def accept_report(self, request, ngo_id=None):
+    def accept_report(self, request, id=None):
         """Accept a report by NGO"""
         try:
             # Validate NGO ownership
@@ -121,23 +143,23 @@ class NGOViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Fetch and lock the report
+
             with transaction.atomic():
                 report = InjuryReport.objects.select_for_update().get(report_id=report_id)
-                
                 if report.status != 'pending':
                     return Response({
                         "error": "Report already taken"
                     }, status=status.HTTP_409_CONFLICT)
-
-                # Assign report to NGO
-                report.ngo_assigned_id = request.user_id
+                # Assign report to NGO (ForeignKey)
+                report.ngo_assigned = ngo
                 report.status = 'in_progress'
                 report.save()
 
             # Notify both NGO and user about report assignment
             notification_triggers.notify_report_assigned_to_ngo(report, ngo)
 
-            log_ngo_activity(str(ngo.ngo_id), 'report_accepted', {
+
+            log_ngo_activity(str(ngo.appwrite_user_id), 'report_accepted', {
                 'report_id': str(report.report_id),
                 'ngo_location': {'lat': lat, 'lon': lon},
                 'report_location': {'lat': report.latitude, 'lon': report.longitude}
@@ -159,14 +181,14 @@ class NGOViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
         except InjuryReport.DoesNotExist:
-            ngo_logger.warning(f"Report not found for NGO acceptance: report_id={report_id}, ngo_id={ngo_id}")
+            ngo_logger.warning(f"Report not found for NGO acceptance: report_id={report_id}, ngo_appwrite_user_id={getattr(ngo, 'appwrite_user_id', None)}")
             return Response({
                 "error": "Report not found"
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             log_error_with_context(ngo_logger, e, {
                 'action': 'accept_report',
-                'ngo_id': ngo_id,
+                'ngo_appwrite_user_id': getattr(ngo, 'appwrite_user_id', None),
                 'report_id': report_id,
                 'user_id': request.user_id
             })
@@ -176,7 +198,7 @@ class NGOViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='assigned-reports')
     @log_api_request(ngo_logger)
-    def assigned_reports(self, request, ngo_id=None):
+    def assigned_reports(self, request, appwrite_user_id=None):
         """Get all reports assigned to this NGO"""
         try:
             ngo = self.get_object()
@@ -185,21 +207,21 @@ class NGOViewSet(viewsets.ModelViewSet):
                     "error": "Unauthorized"
                 }, status=status.HTTP_401_UNAUTHORIZED)
 
-            reports = InjuryReport.objects.filter(ngo_assigned_id=request.user_id)
+
+            reports = InjuryReport.objects.filter(ngo_assigned=ngo)
             serializer = InjuryReportSerializer(reports, many=True)
-            
-            ngo_logger.info(f"NGO assigned reports query: ngo_id={ngo_id}, user_id={request.user_id}, found={len(reports)} reports")
+            ngo_logger.info(f"NGO assigned reports query: ngo_appwrite_user_id={ngo.appwrite_user_id}, user_id={request.user_id}, found={len(reports)} reports")
             return Response(serializer.data)
 
         except NGO.DoesNotExist:
-            ngo_logger.warning(f"NGO not found for assigned reports: ngo_id={ngo_id}, user_id={request.user_id}")
+            ngo_logger.warning(f"NGO not found for assigned reports: appwrite_user_id={appwrite_user_id}, user_id={request.user_id}")
             return Response({
                 "error": "NGO not found"
             }, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['get'], url_path='dashboard-stats')
     @log_api_request(ngo_logger)
-    def dashboard_stats(self, request, ngo_id=None):
+    def dashboard_stats(self, request, appwrite_user_id=None):
         """Get dashboard statistics for NGO"""
         try:
             ngo = self.get_object()
@@ -208,14 +230,15 @@ class NGOViewSet(viewsets.ModelViewSet):
                     "error": "Unauthorized"
                 }, status=status.HTTP_401_UNAUTHORIZED)
 
-            user_id = request.user_id
-            total = InjuryReport.objects.filter(ngo_assigned_id=user_id).count()
+
+            # Use ForeignKey for filtering
+            total = InjuryReport.objects.filter(ngo_assigned=ngo).count()
             in_progress = InjuryReport.objects.filter(
-                ngo_assigned_id=user_id, 
+                ngo_assigned=ngo, 
                 status='in_progress'
             ).count()
             resolved = InjuryReport.objects.filter(
-                ngo_assigned_id=user_id, 
+                ngo_assigned=ngo, 
                 status='resolved'
             ).count()
 
@@ -224,18 +247,17 @@ class NGOViewSet(viewsets.ModelViewSet):
                 "in_progress": in_progress,
                 "resolved": resolved,
             }
-            
-            ngo_logger.info(f"NGO dashboard stats: ngo_id={ngo_id}, user_id={user_id}, stats={stats}")
+            ngo_logger.info(f"NGO dashboard stats: ngo_appwrite_user_id={ngo.appwrite_user_id}, stats={stats}")
             return Response(stats)
 
         except NGO.DoesNotExist:
-            ngo_logger.warning(f"NGO not found for dashboard stats: ngo_id={ngo_id}, user_id={request.user_id}")
+            ngo_logger.warning(f"NGO not found for dashboard stats: appwrite_user_id={appwrite_user_id}, user_id={request.user_id}")
             return Response({
                 "error": "NGO not found"
             }, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['get'], url_path='report-timeline')
-    def report_timeline(self, request, ngo_id=None):
+    def report_timeline(self, request, appwrite_user_id=None):
         """Get timeline for a specific report"""
         try:
             ngo = self.get_object()
@@ -278,7 +300,7 @@ class NGOViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['get'], url_path='volunteer-requests')
-    def volunteer_requests(self, request, ngo_id=None):
+    def volunteer_requests(self, request, appwrite_user_id=None):
         """Get all volunteer applications for this NGO"""
         try:
             ngo = self.get_object()
@@ -297,7 +319,7 @@ class NGOViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['post'], url_path='apply-volunteer')
-    def apply_volunteer(self, request, ngo_id=None):
+    def apply_volunteer(self, request, appwrite_user_id=None):
         """User applies to volunteer at an NGO."""
         user = request.user
         ngo = self.get_object()
@@ -308,7 +330,7 @@ class NGOViewSet(viewsets.ModelViewSet):
         return Response({"message": "Application submitted."}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['patch'], url_path='update-application-status')
-    def update_application_status(self, request, ngo_id=None):
+    def update_application_status(self, request, appwrite_user_id=None):
         """Update volunteer application status"""
         try:
             ngo = self.get_object()
@@ -331,13 +353,12 @@ class NGOViewSet(viewsets.ModelViewSet):
                     "error": "Invalid status. Must be 'accepted' or 'rejected'"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+
             application = VolunteerApplication.objects.get(id=application_id)
-            
-            if application.ngo.ngo_id != ngo_id:
+            if application.ngo != ngo:
                 return Response({
                     "error": "Application does not belong to this NGO"
                 }, status=status.HTTP_401_UNAUTHORIZED)
-            
             old_status = application.status
             application.status = new_status
             application.save()
@@ -361,7 +382,7 @@ class NGOViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['post'], url_path='update-report-status')
-    def update_report_status(self, request, ngo_id=None):
+    def update_report_status(self, request, appwrite_user_id=None):
         """Update status of an assigned report"""
         try:
             ngo = self.get_object()
@@ -384,13 +405,12 @@ class NGOViewSet(viewsets.ModelViewSet):
                     "error": "Invalid status"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+
             report = InjuryReport.objects.get(report_id=report_id)
-            
-            if report.ngo_assigned_id != request.user_id:
+            if report.ngo_assigned != ngo:
                 return Response({
                     "error": "Report not assigned to this NGO"
                 }, status=status.HTTP_401_UNAUTHORIZED)
-            
             old_status = report.status
             report.status = new_status
             report.save()

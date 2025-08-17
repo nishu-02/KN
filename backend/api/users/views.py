@@ -311,45 +311,70 @@ class UserProfileViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'], url_path='register-device')
     @log_api_request(user_logger)
     def register_device(self, request):
-        """Register or update a push token for the authenticated user"""
+        """Register or update a push token for the authenticated user (User or NGO)"""
         try:
             user_id = request.user_id
-            token = request.data.get('token')
+            # Support both parameter name formats for compatibility
+            token = request.data.get('push_token') or request.data.get('token')
             platform = request.data.get('platform')
-            device_id = request.data.get('deviceId')
+            device_id = request.data.get('device_id') or request.data.get('deviceId')
 
             if not token:
-                return Response({'error': 'token is required'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'push_token is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-            profile = UserProfile.objects.get(appwrite_user_id=user_id)
+            # Determine user type - check if it's an NGO or regular user
+            from ngo.models import NGO
+            from .models import PushToken
+            
+            user_type = 'user'
+            is_volunteer = False
+            
+            # Check if this is an NGO
+            if NGO.objects.filter(appwrite_user_id=user_id).exists():
+                user_type = 'ngo'
+            # Check if this is a regular user
+            elif UserProfile.objects.filter(appwrite_user_id=user_id).exists():
+                user_type = 'user'
+                profile = UserProfile.objects.get(appwrite_user_id=user_id)
+                is_volunteer = profile.is_volunteer
+            else:
+                return Response({
+                    'error': 'User profile not found. Please complete registration first.'
+                }, status=status.HTTP_404_NOT_FOUND)
 
-            # Upsert UserPushToken
-            obj, created = UserPushToken.objects.update_or_create(
-                user=profile,
+            # Upsert PushToken using the generic model
+            obj, created = PushToken.objects.update_or_create(
+                appwrite_user_id=user_id,
                 token=token,
                 defaults={
-                    'appwrite_user_id': user_id,
                     'device_id': device_id,
                     'platform': platform,
+                    'user_type': user_type,
                     'is_active': True
                 }
             )
 
             # Subscribe to volunteer topic if applicable
-            try:
-                from .services.push_service import subscribe_token_to_topic
-                if profile.is_volunteer:
+            if user_type == 'user' and is_volunteer:
+                try:
+                    from .services.push_service import subscribe_token_to_topic
                     subscribe_token_to_topic(token, 'volunteer')
-            except Exception as e:
-                user_logger.warning(f"Failed to subscribe token to topic: {e}")
+                except Exception as e:
+                    user_logger.warning(f"Failed to subscribe token to topic: {e}")
 
-            user_logger.info(f"Registered push token for user {user_id}")
-            return Response({'ok': True, 'created': created})
+            user_logger.info(f"Registered push token for {user_type} {user_id}")
+            return Response({
+                'success': True, 
+                'created': created,
+                'user_type': user_type
+            })
 
-        except UserProfile.DoesNotExist:
-            return Response({'error': 'profile not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            log_error_with_context(user_logger, e, {'action': 'register_device', 'user_id': request.user_id})
+            log_error_with_context(user_logger, e, {
+                'action': 'register_device', 
+                'user_id': request.user_id,
+                'token_length': len(request.data.get('push_token', ''))
+            })
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='upload-avatar')
@@ -495,7 +520,23 @@ class VolunteerApplicationViewSet(viewsets.ViewSet):
     def create(self, request, ngo_id=None):
         """ Apply to become a volunteer for an NGO """
         try:
-            ngo = NGO.objects.get(ngo_id=ngo_id)
+            # Get NGO ID from request data since this is likely called as POST to /users/volunteer-applications/
+            ngo_id = request.data.get('ngo_id')
+            if not ngo_id:
+                return Response({
+                    'error': "NGO ID is required"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Try to get NGO by id first, then by appwrite_user_id if not found
+            try:
+                ngo = NGO.objects.get(id=ngo_id)
+            except (NGO.DoesNotExist, ValueError):
+                # If not found by id or invalid int, try by appwrite_user_id
+                try:
+                    ngo = NGO.objects.get(appwrite_user_id=ngo_id)
+                except NGO.DoesNotExist:
+                    raise NGO.DoesNotExist()
+            
             message = request.data.get('message')
 
             application, created = VolunteerApplication.objects.get_or_create(

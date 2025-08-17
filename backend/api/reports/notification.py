@@ -1,5 +1,4 @@
 from .models import ExpoPushToken
-from notifications.utils import send_and_log_notification
 
 def notify_user(user_id, title, body, data=None, report=None):
     try:

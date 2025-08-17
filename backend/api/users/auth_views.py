@@ -196,91 +196,74 @@ def get_account_type(request):
         "appwrite_user_id": "string"
     }
     """
+
     try:
         data = request.data
         appwrite_user_id = data.get('appwrite_user_id')
-        
+        print(f"[DEBUG] Received appwrite_user_id: {appwrite_user_id}")
         if not appwrite_user_id:
+            print("[DEBUG] No appwrite_user_id provided!")
             return Response({
                 'success': False,
                 'error': 'appwrite_user_id is required'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # QUICK FIX: For release, skip server-side verification and trust the frontend JWT
-        # This is a temporary fix to unblock the release
+
+        account_info = None
+        # Check if this is a regular user
         try:
-            # Try to get account type by looking up the user directly
-            account_info = None
-            
-            # Check if this is a regular user
+            user_profile = UserProfile.objects.filter(appwrite_user_id=appwrite_user_id).first()
+            if user_profile:
+                account_info = {
+                    'account_type': 'user',
+                    'entity_id': str(user_profile.id),
+                    'user_data': {
+                        'name': user_profile.full_name or 'User',
+                        'email': user_profile.email or '',
+                        'verified': True
+                    }
+                }
+        except Exception as e:
+            print(f"[DEBUG] Error checking user profile: {e}")
+
+        # Check if this is an NGO
+        if not account_info:
             try:
-                user_profile = UserProfile.objects.filter(appwrite_user_id=appwrite_user_id).first()
-                if user_profile:
+                ngo = NGO.objects.filter(appwrite_user_id=appwrite_user_id).first()
+                if ngo:
                     account_info = {
-                        'account_type': 'user',
-                        'entity_id': str(user_profile.id),
+                        'account_type': 'ngo',
+                        'entity_id': str(ngo.id),
                         'user_data': {
-                            'name': user_profile.full_name or 'User',
-                            'email': user_profile.email or '',
-                            'verified': True
+                            'name': ngo.name,
+                            'email': ngo.email or '',
+                            'verified': ngo.verified
                         }
                     }
             except Exception as e:
-                user_logger.warning(f"Error checking user profile: {e}")
-            
-            # Check if this is an NGO
-            if not account_info:
-                try:
-                    ngo = NGO.objects.filter(appwrite_user_id=appwrite_user_id).first()
-                    if ngo:
-                        account_info = {
-                            'account_type': 'ngo',
-                            'entity_id': str(ngo.id),
-                            'user_data': {
-                                'name': ngo.name,
-                                'email': ngo.contact_email or '',
-                                'verified': ngo.is_verified
-                            }
-                        }
-                except Exception as e:
-                    user_logger.warning(f"Error checking NGO: {e}")
-            
-            # If no existing profile found, it's a new user
-            if not account_info:
-                account_info = {
-                    'account_type': 'new_user',
-                    'entity_id': None,
-                    'user_data': {
-                        'name': 'New User',
-                        'email': '',
-                        'verified': False
-                    }
+                print(f"[DEBUG] Error checking NGO: {e}")
+
+        # If no existing profile found, it's a new user
+        if not account_info:
+            account_info = {
+                'account_type': 'new_user',
+                'entity_id': None,
+                'user_data': {
+                    'name': 'New User',
+                    'email': '',
+                    'verified': False
                 }
-            
-            # Return the account info
-            user_logger.info(f"Account type determined: {account_info['account_type']} - user_id={appwrite_user_id}")
-            return Response({
-                'success': True,
-                'account_type': account_info['account_type'],
-                'entity_id': account_info['entity_id'],
-                'user_data': account_info['user_data']
-            })
-            
-        except Exception as e:
-            log_error_with_context(user_logger, e, {
-                'action': 'get_account_type',
-                'appwrite_user_id': appwrite_user_id
-            })
-            return Response({
-                'success': False,
-                'error': 'Internal server error'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }
+
+        print(f"[DEBUG] Account type determined: {account_info['account_type']} for user_id={appwrite_user_id}")
+        return Response({
+            'success': True,
+            'account_type': account_info['account_type'],
+            'entity_id': account_info['entity_id'],
+            'user_data': account_info['user_data']
+        })
 
     except Exception as e:
-        log_error_with_context(user_logger, e, {
-            'action': 'get_account_type',
-            'appwrite_user_id': data.get('appwrite_user_id') if 'data' in locals() else None
-        })
+        print(f"[DEBUG] Exception in get_account_type: {e}")
         return Response({
             'success': False,
             'error': 'Internal server error'
