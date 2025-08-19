@@ -11,8 +11,7 @@ from .serializers import NGORegisterSerializer
 from reports.models import InjuryReport
 from reports.serializers import InjuryReportSerializer
 from users.models import VolunteerApplication
-# Remove unused import
-# Remove unused import
+from users.serializers import VolunteerApplicationSerializer
 
 from utils.logger import (
     ngo_logger, log_api_request, log_ngo_activity, 
@@ -320,14 +319,17 @@ class NGOViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='apply-volunteer')
     def apply_volunteer(self, request, appwrite_user_id=None):
-        """User applies to volunteer at an NGO."""
-        user = request.user
+        """User applies to volunteer at an NGO using production-grade serializer."""
         ngo = self.get_object()
-        # Create application (simplified, add validation as needed)
-        application = VolunteerApplication.objects.create(user=user, ngo=ngo, status='pending')
-        # Notify NGO
-        notification_triggers.notify_volunteer_applied(application)
-        return Response({"message": "Application submitted."}, status=status.HTTP_201_CREATED)
+        data = request.data.copy()
+        data['ngo_id'] = ngo.id
+        data['user_id'] = getattr(request, 'user_id', None)
+        serializer = VolunteerApplicationSerializer(data=data, context={'request': request})
+        if serializer.is_valid():
+            application = serializer.save()
+            notification_triggers.notify_volunteer_applied(application)
+            return Response({"message": "Application submitted."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['patch'], url_path='update-application-status')
     def update_application_status(self, request, appwrite_user_id=None):

@@ -159,17 +159,6 @@ APPWRITE_DATABASE_ID = os.getenv("APPWRITE_DATABASE_ID")
 APPWRITE_REPORT_COLLECTION_ID = os.getenv("APPWRITE_REPORT_COLLECTION_ID")
 APPWRITE_BUCKET_ID = os.getenv("APPWRITE_BUCKET_ID")
 
-# Appwrite Function for notifications (DEPRECATED - keeping for backwards compatibility)
-APPWRITE_FUNCTION_ID = os.getenv("APPWRITE_FUNCTION_ID", "")
-APPWRITE_FUNCTION_ENDPOINT = os.getenv(
-    "APPWRITE_FUNCTION_ENDPOINT",
-    f"{APPWRITE_ENDPOINT}/functions/{os.getenv('APPWRITE_FUNCTION_ID', '')}/executions"
-)
-
-# Firebase Cloud Messaging (FCM) Configuration
-# Get your FCM Server Key from Firebase Console > Project Settings > Cloud Messaging
-FCM_SERVER_KEY = os.getenv("FCM_SERVER_KEY", "")
-
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -218,12 +207,6 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Use Redis as the message broker
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0' # Use Redis for storing task results
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
 
 # Logging Configuration
 LOGGING = {
