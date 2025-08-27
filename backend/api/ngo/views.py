@@ -116,7 +116,7 @@ class NGOViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='accept-report')
     @log_api_request(ngo_logger)
-    def accept_report(self, request, id=None):
+    def accept_report(self, request, appwrite_user_id=None, **kwargs):
         """Accept a report by NGO"""
         try:
             # Validate NGO ownership

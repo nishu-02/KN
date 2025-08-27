@@ -48,6 +48,29 @@ def notify_report_assigned_to_ngo(report, ngo):
     }
     _send_notification_safely(payload, f"for report assignment to NGO {ngo.id}")
 
+def notify_report_assigned_to_volunteer(report, volunteer_profile):
+    """
+    Notify the volunteer when a report has been assigned to them.
+    """
+    tokens = _get_tokens_for_user(volunteer_profile.appwrite_user_id, 'user')
+    if not tokens:
+        logger.warning(f"No push tokens found for volunteer {volunteer_profile.appwrite_user_id}")
+        return
+    
+    payload = {
+        "tokens": tokens,
+        "title": "Report Assigned",
+        "body": f"You have accepted report {report.report_id}. Help is on the way!",
+        "type": "status_update",
+        "recipient_user_id": volunteer_profile.appwrite_user_id,
+        "data": {
+            "report_id": str(report.report_id),
+            "status": report.status,
+            "action": "report_assigned_volunteer"
+        }
+    }
+    _send_notification_safely(payload, f"for report assignment to volunteer {volunteer_profile.appwrite_user_id}")
+
 def notify_emergency_alert(report_id: str, location: str, latitude: Optional[float] = None, longitude: Optional[float] = None):
     """Notify all users about an emergency alert."""
     tokens = list(PushToken.objects.filter(is_active=True).values_list('token', flat=True))
@@ -144,12 +167,30 @@ def notify_injury_report_created(report):
         is_active=True
     ).values_list('token', flat=True))
     
-    # Combine and deduplicate tokens
-    all_tokens = list(set(ngo_tokens + volunteer_tokens))
+    # Exclude the report creator's tokens
+    creator_tokens = list(PushToken.objects.filter(
+        appwrite_user_id=str(report.user_id),
+        is_active=True
+    ).values_list('token', flat=True))
+
+    # Combine and deduplicate tokens, then exclude creator's tokens
+    all_tokens = list(set(ngo_tokens + volunteer_tokens) - set(creator_tokens))
     if not all_tokens:
-        logger.warning("No push tokens found for injury report notification")
+        logger.warning("No push tokens found for injury report notification (excluding creator)")
         return
-    
+
+    payload = {
+        "type": "injury_report",
+        "tokens": all_tokens,
+        "title": "🩹 New Injury Report",
+        "body": f"A new injury report has been submitted and requires attention.",
+        "data": {
+            "report_id": str(report.report_id),
+            "action": "injury_report_created"
+        }
+    }
+    _send_notification_safely(payload, f"for injury report {report.report_id}")
+
     payload = {
         "type": "injury_report",
         "tokens": all_tokens,

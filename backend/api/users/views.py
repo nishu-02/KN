@@ -17,6 +17,7 @@ from utils.logger import (
     user_logger, log_api_request, log_user_activity, 
     log_error_with_context
 )
+from utils import notification_triggers
 
 # Custom throttle classes
 class VolunteerApplicationThrottle(UserRateThrottle):
@@ -72,6 +73,94 @@ class UserReportViewSet(viewsets.ViewSet):
                 'user_id': request.user_id
             })
             raise
+
+    @action(detail=False, methods=['post'], url_path='accept-report')
+    @log_api_request(user_logger)
+    def accept_report(self, request):
+        """ Accept a report as a volunteer """
+        try:
+            user_id = request.user_id
+            
+            # Check if user is a volunteer
+            try:
+                profile = UserProfile.objects.get(appwrite_user_id=user_id)
+                if not profile.is_volunteer:
+                    return Response({
+                        "error": "Only volunteers can accept reports"
+                    }, status=status.HTTP_403_FORBIDDEN)
+            except UserProfile.DoesNotExist:
+                return Response({
+                    "error": "User profile not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # Validate request data
+            lat = request.data.get('lat')
+            lon = request.data.get('lon')
+            report_id = request.data.get('report_id')
+            
+            if not lat or not lon:
+                return Response({
+                    "error": "Missing volunteer location coordinates"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if not report_id:
+                return Response({
+                    "error": "Missing report_id"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Fetch and lock the report
+            with transaction.atomic():
+                try:
+                    report = InjuryReport.objects.select_for_update().get(report_id=report_id)
+                except InjuryReport.DoesNotExist:
+                    return Response({
+                        "error": "Report not found"
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                if report.status != 'pending':
+                    return Response({
+                        "error": "Report already taken"
+                    }, status=status.HTTP_409_CONFLICT)
+                
+                # Assign report to volunteer
+                report.volunteer_assigned = profile
+                report.status = 'in_progress'
+                report.save()
+
+            # Log the activity
+            log_user_activity(user_id, 'report_accepted', {
+                'report_id': str(report.report_id),
+                'volunteer_location': {'lat': lat, 'lon': lon},
+                'report_location': {'lat': report.latitude, 'lon': report.longitude}
+            })
+
+            # Notify about report assignment
+            notification_triggers.notify_report_assigned_to_volunteer(report, profile)
+
+            return Response({
+                "message": "Report accepted successfully as volunteer",
+                "report_id": report_id,
+                "route": {
+                    "from": {
+                        "lat": lat,
+                        "lon": lon
+                    },
+                    "to": {
+                        "lat": report.latitude,
+                        "lon": report.longitude
+                    }
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            log_error_with_context(user_logger, e, {
+                'action': 'volunteer_accept_report',
+                'user_id': request.user_id,
+                'report_id': request.data.get('report_id')
+            })
+            return Response({
+                "error": "Internal server error"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserProfileViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
